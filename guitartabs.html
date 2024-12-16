@@ -1,335 +1,441 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>Guitar Tabs Browser</title>
-    <!-- React and ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <!-- Chakra UI and dependencies -->
-    <script src="https://unpkg.com/@chakra-ui/react@2.8.2/dist/chakra-ui.min.js"></script>
-    <script src="https://unpkg.com/@emotion/react@11/dist/emotion-react.umd.min.js"></script>
-    <script src="https://unpkg.com/@emotion/styled@11/dist/emotion-styled.umd.min.js"></script>
-    <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.umd.js"></script>
-    
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.min.js"></script>
-    
-    <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <style>
-        body {
-            margin: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@18.2.0",
+          "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
+          "react-dom": "https://esm.sh/react-dom@18.2.0",
+          "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+          "@chakra-ui/react": "https://esm.sh/@chakra-ui/react@2.8.2",
+          "@emotion/react": "https://esm.sh/@emotion/react@11.11.1",
+          "@emotion/styled": "https://esm.sh/@emotion/styled@11.11.0",
+          "framer-motion": "https://esm.sh/framer-motion@10.16.4",
+          "lucide-react": "https://esm.sh/lucide-react@0.263.1"
         }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-        .card {
-            border: 1px solid #e2e8f0;
-            border-radius: 0.5rem;
-            padding: 1rem;
-            margin-bottom: 0.5rem;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .card:hover {
-            background-color: #f7fafc;
-        }
-    </style>
-</head>
-<body>
-    <div id="root"></div>
-
-    <script type="text/babel">
-        const { useState, useEffect } = React;
-        const { 
-            ChakraProvider, 
-            Container, 
-            VStack, 
-            HStack, 
-            Heading, 
-            Text, 
-            Box,
-            Button,
-        } = window.ChakraUIReact;
-        
-        const { FileIcon, FolderIcon, MusicIcon, ClockIcon } = window.LucideReact;
-
-        // Types checking helper
-        const isFileItem = (file) => 'handle' in file;
-
-        // File Card Component
-        const FileCard = ({ file, onClick }) => (
-            <div className="card" onClick={() => onClick(file)}>
-                <HStack spacing={2}>
-                    <FileIcon size={16} />
-                    <Text>{file.name}</Text>
-                </HStack>
-            </div>
-        );
-
-        // Genre Card Component
-        const GenreCard = ({ genre, onClick }) => (
-            <div className="card" onClick={() => onClick(genre)}>
-                <HStack spacing={2}>
-                    <FolderIcon size={16} />
-                    <Text>{genre.name}</Text>
-                </HStack>
-            </div>
-        );
-
-        // Recent Files Component
-        const RecentFiles = ({ files, onFileClick }) => (
-            <VStack align="stretch" spacing={2}>
-                <Heading size="md">
-                    <HStack>
-                        <ClockIcon size={20} />
-                        <Text>Recent Tabs</Text>
-                    </HStack>
-                </Heading>
-                {files.map((file, index) => (
-                    <FileCard key={index} file={file} onClick={onFileClick} />
-                ))}
-            </VStack>
-        );
-
-        // Genre View Component
-        const GenreView = ({ currentGenre, files, onBack, onFileClick }) => (
-            <VStack spacing={6} align="stretch">
-                <HStack justify="space-between">
-                    <Button 
-                        variant="outline" 
-                        onClick={onBack}
-                        leftIcon={<FolderIcon size={16} />}
-                    >
-                        Back to Genres
-                    </Button>
-                    <Heading size="md">{currentGenre}</Heading>
-                </HStack>
-                <VStack spacing={2} align="stretch">
-                    {files.map((file) => (
-                        <FileCard key={file.name} file={file} onClick={onFileClick} />
-                    ))}
-                </VStack>
-            </VStack>
-        );
-
-        // Home View Component
-        const HomeView = ({ recentFiles, genres, onGenreClick, onFileClick }) => (
-            <VStack spacing={6} align="stretch">
-                <Heading size="lg">Guitar Tabs</Heading>
-                {recentFiles.length > 0 && (
-                    <RecentFiles files={recentFiles} onFileClick={onFileClick} />
-                )}
-                <Box>
-                    <Heading size="md" mb={4}>
-                        <HStack>
-                            <MusicIcon size={20} />
-                            <Text>Genres</Text>
-                        </HStack>
-                    </Heading>
-                    <VStack spacing={2} align="stretch">
-                        {genres.map((genre) => (
-                            <GenreCard
-                                key={genre.name}
-                                genre={genre}
-                                onClick={onGenreClick}
-                            />
-                        ))}
-                    </VStack>
-                </Box>
-            </VStack>
-        );
-
-        // Custom Hooks
-        const useRecentFiles = () => {
-            const [recentFiles, setRecentFiles] = useState([]);
-            const RECENT_FILES_KEY = 'recentGuitarTabs';
-            const MAX_RECENT_FILES = 5;
-
-            useEffect(() => {
-                const stored = localStorage.getItem(RECENT_FILES_KEY);
-                if (stored) {
-                    setRecentFiles(JSON.parse(stored));
-                }
-            }, []);
-
-            const addRecentFile = (file) => {
-                const newRecent = [
-                    { name: file.name, genre: file.genre },
-                    ...recentFiles.filter(rf => rf.name !== file.name).slice(0, MAX_RECENT_FILES - 1)
-                ];
-                setRecentFiles(newRecent);
-                localStorage.setItem(RECENT_FILES_KEY, JSON.stringify(newRecent));
-            };
-
-            return { recentFiles, addRecentFile };
-        };
-
-        const useFileSystem = () => {
-            const [rootHandle, setRootHandle] = useState(null);
-            const [genres, setGenres] = useState([]);
-            const [files, setFiles] = useState([]);
-            const [error, setError] = useState(null);
-
-            useEffect(() => {
-                const initializeDirectory = async () => {
-                    try {
-                        const dirHandle = await window.showDirectoryPicker({
-                            mode: 'read'
-                        });
-
-                        try {
-                            const permission = await dirHandle.requestPermission({ mode: 'read' });
-                            if (permission === 'granted') {
-                                await loadDirectory(dirHandle);
-                            }
-                        } catch (err) {
-                            console.error('Error getting directory permission:', err);
-                            setError('Failed to get permission for directory');
-                        }
-                    } catch (err) {
-                        console.error('Failed to access directory:', err);
-                        setError('Failed to access Guitar Tabs directory');
-                    }
-                };
-
-                initializeDirectory();
-            }, []);
-
-            const loadDirectory = async (dirHandle) => {
-                const genresList = [];
-                
-                for await (const entry of dirHandle.values()) {
-                    if (entry.kind === 'directory') {
-                        genresList.push({
-                            name: entry.name,
-                            handle: entry
-                        });
-                    }
-                }
-                
-                setRootHandle(dirHandle);
-                setGenres(genresList.sort((a, b) => a.name.localeCompare(b.name)));
-                setError(null);
-            };
-
-            const loadGenreFiles = async (genre) => {
-                try {
-                    const filesList = [];
-                    
-                    for await (const entry of genre.handle.values()) {
-                        if (entry.kind === 'file' && entry.name.endsWith('.pdf')) {
-                            filesList.push({
-                                name: entry.name,
-                                genre: genre.name,
-                                handle: entry
-                            });
-                        }
-                    }
-                    
-                    setFiles(filesList.sort((a, b) => a.name.localeCompare(b.name)));
-                    setError(null);
-                } catch (err) {
-                    setError('Failed to load files from genre');
-                    console.error(err);
-                }
-            };
-
-            return {
-                rootHandle,
-                genres,
-                files,
-                error,
-                loadGenreFiles
-            };
-        };
-
-        // Main App Component
-        const GuitarTabs = () => {
-            const [view, setView] = useState('home');
-            const [currentGenre, setCurrentGenre] = useState('');
-            const { rootHandle, genres, files, loadGenreFiles, error } = useFileSystem();
-            const { recentFiles, addRecentFile } = useRecentFiles();
-
-            const handleGenreClick = async (genre) => {
-                await loadGenreFiles(genre);
-                setCurrentGenre(genre.name);
-                setView('genre');
-            };
-
-            const handleFileClick = async (file) => {
-                if (!isFileItem(file)) {
-                    console.error('Cannot open recent file directly');
-                    return;
-                }
-
-                try {
-                    const fileData = await file.handle.getFile();
-                    addRecentFile({ name: file.name, genre: file.genre });
-                    const url = URL.createObjectURL(fileData);
-                    window.open(url, '_blank');
-                } catch (err) {
-                    console.error('Error opening file:', err);
-                }
-            };
-
-            if (!rootHandle) {
-                return (
-                    <Container maxW="container.xl" py={8}>
-                        <VStack spacing={4}>
-                            <Heading>Guitar Tabs Browser</Heading>
-                            <Heading size="md">Loading directory...</Heading>
-                            {error && (
-                                <Text color="red.500">{error}</Text>
-                            )}
-                        </VStack>
-                    </Container>
-                );
-            }
-
-            return (
-                <Container maxW="container.xl" py={8}>
-                    {view === 'home' ? (
-                        <HomeView
-                            recentFiles={recentFiles}
-                            genres={genres}
-                            onGenreClick={handleGenreClick}
-                            onFileClick={(file) => {
-                                const fileItem = files.find(f => f.name === file.name && f.genre === file.genre);
-                                if (fileItem) {
-                                    handleFileClick(fileItem);
-                                } else {
-                                    console.error('File not found in current directory');
-                                }
-                            }}
-                        />
-                    ) : (
-                        <GenreView
-                            currentGenre={currentGenre}
-                            files={files}
-                            onBack={() => setView('home')}
-                            onFileClick={handleFileClick}
-                        />
-                    )}
-                </Container>
-            );
-        };
-
-        // Render the app
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(
-            <React.StrictMode>
-                <ChakraProvider>
-                    <GuitarTabs />
-                </ChakraProvider>
-            </React.StrictMode>
-        );
+      }
     </script>
-</body>
-</html>
+    <style>
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+      }
+      .card {
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+      .card:hover {
+        background-color: #f7fafc;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel" data-type="module">
+      import React, { useState, useEffect } from "react";
+      import ReactDOM from "react-dom/client";
+      import { ChakraProvider, Container, VStack, HStack, Heading, Text, Box, Button, Flex, SimpleGrid, Center, ColorModeScript, extendTheme } from "@chakra-ui/react";
+      import { File as FileIcon, Folder as FolderIcon, Music as MusicIcon, Clock as ClockIcon } from "lucide-react";
+
+      const theme = extendTheme({
+        config: {
+          initialColorMode: 'dark',
+          useSystemColorMode: false,
+        },
+        styles: {
+          global: (props) => ({
+            body: {
+              bg: 'gray.800',
+              color: 'white'
+            }
+          })
+        }
+      });
+
+      const useFileSystem = () => {
+        const [rootHandle, setRootHandle] = useState(null);
+        const [genres, setGenres] = useState([]);
+        const [files, setFiles] = useState([]);
+        const [error, setError] = useState(null);
+        const [showPermissionDialog, setShowPermissionDialog] = useState(true);
+        const { recentFiles, addRecentFile } = useRecentFiles();
+
+        // Restore directory handle on mount
+        useEffect(() => {
+          const restoreAccess = async () => {
+            try {
+              // Try to get the stored directory handle
+              const stored = localStorage.getItem("guitarTabsDirectory");
+              if (stored) {
+                const handle = JSON.parse(stored);
+                if (handle) {
+                  const dirHandle = await window.showDirectoryPicker({
+                    startIn: handle,
+                    mode: "read",
+                  });
+                  await loadDirectory(dirHandle);
+                  setRootHandle(dirHandle);
+                  setShowPermissionDialog(false);
+                }
+              }
+            } catch (err) {
+              console.error("Failed to restore directory access:", err);
+              setShowPermissionDialog(true);
+            }
+          };
+
+          restoreAccess();
+        }, []);
+
+        const loadDirectory = async (dirHandle) => {
+          try {
+            const genresList = [];
+            for await (const entry of dirHandle.values()) {
+              // Skip .git folder
+              if (entry.kind === "directory" && entry.name !== ".git") {
+                const files = [];
+                for await (const fileEntry of entry.values()) {
+                  if (fileEntry.kind === "file" && fileEntry.name.endsWith(".pdf")) {
+                    files.push({
+                      name: fileEntry.name,
+                      handle: fileEntry,
+                      genre: entry.name,
+                    });
+                  }
+                }
+                genresList.push({
+                  name: entry.name,
+                  handle: entry,
+                  files: files,
+                });
+              }
+            }
+            setGenres(genresList.sort((a, b) => a.name.localeCompare(b.name)));
+            setError(null);
+          } catch (err) {
+            console.error("Error loading directory:", err);
+            setError("Failed to load genres and files");
+          }
+        };
+
+        const initializeDirectory = async () => {
+          try {
+            // Try to start in the Documents directory
+            const handle = await window.showDirectoryPicker({
+              mode: "read",
+            });
+
+            try {
+              const permission = await handle.requestPermission({ mode: "read" });
+              if (permission === "granted") {
+                await loadDirectory(handle);
+                // Store the directory handle
+                localStorage.setItem("guitarTabsDirectory", JSON.stringify(handle));
+                setRootHandle(handle);
+                setShowPermissionDialog(false);
+              }
+            } catch (err) {
+              console.error("Permission error:", err);
+              setError("Failed to get permission for directory");
+            }
+          } catch (err) {
+            console.error("Directory access error:", err);
+            setError("Failed to access directory");
+          }
+        };
+
+        return {
+          rootHandle,
+          genres,
+          files,
+          error,
+          initializeDirectory,
+          showPermissionDialog,
+        };
+      };
+
+      const useRecentFiles = () => {
+        const [recentFiles, setRecentFiles] = useState([]);
+        const RECENT_FILES_KEY = "recentGuitarTabs";
+        const MAX_RECENT_FILES = 4;
+
+        useEffect(() => {
+          const stored = localStorage.getItem(RECENT_FILES_KEY);
+          if (stored) {
+            setRecentFiles(JSON.parse(stored));
+          }
+        }, []);
+
+        const addRecentFile = (file) => {
+          const newRecent = [{ name: file.name, genre: file.genre }, ...recentFiles.filter((rf) => rf.name !== file.name).slice(0, MAX_RECENT_FILES - 1)];
+          setRecentFiles(newRecent);
+          localStorage.setItem(RECENT_FILES_KEY, JSON.stringify(newRecent));
+        };
+
+        return { recentFiles, addRecentFile };
+      };
+
+      const GenreCard = ({ genre, onClick }) => {
+        return (
+          <Box
+            borderWidth="2px"
+            borderRadius="xl"
+            p={6}
+            cursor="pointer"
+            onClick={() => onClick(genre)}
+            _hover={{ 
+              bg: 'gray.700',
+              transform: 'translateY(-4px)',
+              boxShadow: 'xl'
+            }}
+            bg="gray.900"
+            height="250px"
+            width="full"
+            maxW="400px"
+            transition="all 0.2s ease-in-out"
+            display="flex"
+            flexDirection="column"
+            justifyContent="center"
+            position="relative"
+            overflow="hidden"
+          >
+            <Center h="full">
+              <VStack spacing={6}>
+                <MusicIcon size={48} />
+                <VStack spacing={3}>
+                  <Text 
+                    fontSize="2xl" 
+                    fontWeight="bold" 
+                    textAlign="center"
+                  >
+                    {genre.name}
+                  </Text>
+                  <Text 
+                    fontSize="lg" 
+                    color="gray.400" 
+                    textAlign="center"
+                  >
+                    {genre.files.length} {genre.files.length === 1 ? 'tab' : 'tabs'}
+                  </Text>
+                </VStack>
+              </VStack>
+            </Center>
+          </Box>
+        );
+      };
+
+      const GenreGrid = ({ genres, onGenreClick }) => {
+        const getColumnCount = (count) => {
+          if (count === 1) return { base: 1 };
+          if (count === 2) return { base: 1, md: 2 };
+          if (count === 3) return { base: 1, md: 2, lg: 3 };
+          return { base: 1, md: 2, lg: 3, xl: 4 };
+        };
+
+        return (
+          <Flex justify="center" w="full">
+            <SimpleGrid 
+              columns={getColumnCount(genres.length)}
+              spacing={8}
+              w="full"
+              px={4}
+            >
+              {genres.map((genre) => (
+                <Center key={genre.name}>
+                  <GenreCard 
+                    genre={genre} 
+                    onClick={onGenreClick}
+                  />
+                </Center>
+              ))}
+            </SimpleGrid>
+          </Flex>
+        );
+      };
+
+      const GuitarTabs = () => {
+        const [view, setView] = useState("home");
+        const [currentGenre, setCurrentGenre] = useState("");
+        const { rootHandle, genres, initializeDirectory, error, showPermissionDialog } = useFileSystem();
+        const { recentFiles, addRecentFile } = useRecentFiles();
+
+        const handleGenreClick = (genre) => {
+          setCurrentGenre(genre);
+          setView("genre");
+        };
+
+        const handleRecentFileClick = async (recentFile) => {
+          const genre = genres.find((g) => g.name === recentFile.genre);
+          if (!genre) {
+            console.error("Genre not found");
+            return;
+          }
+
+          const file = genre.files.find((f) => f.name === recentFile.name);
+          if (!file) {
+            console.error("File not found");
+            return;
+          }
+
+          handleFileClick(file);
+        };
+
+        const handleFileClick = async (file) => {
+          try {
+            const fileData = await file.handle.getFile();
+            addRecentFile({ name: file.name, genre: file.genre });
+            const url = URL.createObjectURL(fileData);
+            window.open(url, "_blank");
+          } catch (err) {
+            console.error("Error opening file:", err);
+          }
+        };
+
+        if (showPermissionDialog) {
+            return (
+              <Container maxW="container.xl" py={8}>
+                <VStack spacing={4}>
+                  <Heading>Guitar Tabs Browser</Heading>
+                  <Button onClick={initializeDirectory} colorScheme="blue" leftIcon={<FolderIcon size={16} />}>
+                    Grant Permission
+                  </Button>
+                  {error && <Text color="red.500">{error}</Text>}
+                </VStack>
+              </Container>
+            );
+          }
+  
+          if (!rootHandle) {
+            return (
+              <Container maxW="container.xl" py={8}>
+                <Heading size="lg">Loading Guitar Tabs...</Heading>
+              </Container>
+            );
+          }
+  
+          return (
+          <Container maxW="container.xl" py={8}>
+            {view === "home" ? (
+              <VStack spacing={12} align="stretch">
+                <Heading size="lg" textAlign="center">Guitar Tabs</Heading>
+                
+                {/* Recent Files Section */}
+                {recentFiles.length > 0 && (
+                  <Box>
+                    <Heading size="md" mb={6} textAlign="center">
+                      <VStack>
+                        <ClockIcon size={24} />
+                        <Text>Recent Tabs</Text>
+                      </VStack>
+                    </Heading>
+                    <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
+                      {recentFiles.map((file) => (
+                        <Box
+                          key={file.name}
+                          borderWidth="1px"
+                          borderRadius="lg"
+                          p={4}
+                          cursor="pointer"
+                          onClick={() => handleRecentFileClick(file)}
+                          _hover={{ bg: 'gray.700' }}
+                          bg="gray.900"
+                        >
+                          <VStack align="center" spacing={1}>
+                            <FileIcon size={16} />
+                            <Text textAlign="center">{file.name}</Text>
+                            <Text fontSize="sm" color="gray.400" textAlign="center">
+                              {file.genre}
+                            </Text>
+                          </VStack>
+                        </Box>
+                      ))}
+                    </SimpleGrid>
+                  </Box>
+                )}
+
+                {/* Genres Section */}
+                <Box>
+                  <Heading size="md" mb={6} textAlign="center">
+                    <VStack>
+                      <MusicIcon size={24} />
+                      <Text>Genres</Text>
+                    </VStack>
+                  </Heading>
+                  {genres.length === 0 ? (
+                    <Text fontSize="lg" textAlign="center">
+                      No folders found. Please ensure the selected directory contains subfolders.
+                    </Text>
+                  ) : (
+                    <GenreGrid genres={genres} onGenreClick={handleGenreClick} />
+                  )}
+                </Box>
+              </VStack>
+              ) : (
+                <VStack align="stretch" spacing={6}>
+                  <HStack justify="space-between">
+                    <Button
+                      leftIcon={<FolderIcon size={16} />}
+                      onClick={() => setView("home")}
+                      variant="outline"
+                      colorScheme="blue"
+                    >
+                      Back Home
+                    </Button>
+                    <Heading size="lg" textAlign="center">{currentGenre.name}</Heading>
+                  </HStack>
+                  {currentGenre.files.length === 0 ? (
+                    <Text fontSize="lg" textAlign="center">
+                      No PDF files found in this folder.
+                    </Text>
+                  ) : (
+                    <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
+                      {currentGenre.files.map((file) => (
+                        <Box
+                          key={file.name}
+                          borderWidth="1px"
+                          borderRadius="lg"
+                          p={4}
+                          cursor="pointer"
+                          onClick={() => handleFileClick(file)}
+                          _hover={{ bg: 'gray.700' }}
+                          bg="gray.900"
+                        >
+                          <VStack align="center" spacing={2}>
+                            <FileIcon size={16} />
+                            <Text textAlign="center">{file.name}</Text>
+                          </VStack>
+                        </Box>
+                      ))}
+                    </SimpleGrid>
+                  )}
+                </VStack>
+              )}
+            </Container>
+          );
+        };
+  
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(
+          <React.StrictMode>
+            <ChakraProvider theme={theme}>
+              <ColorModeScript initialColorMode={theme.config.initialColorMode} />
+              <GuitarTabs />
+            </ChakraProvider>
+          </React.StrictMode>
+        );
+      </script>
+    </body>
+  </html>
