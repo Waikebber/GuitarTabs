@@ -24,22 +24,6 @@
         margin: 0;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       }
-      .container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 2rem;
-      }
-      .card {
-        border: 1px solid #e2e8f0;
-        border-radius: 0.5rem;
-        padding: 1rem;
-        margin-bottom: 0.5rem;
-        cursor: pointer;
-        transition: background-color 0.2s;
-      }
-      .card:hover {
-        background-color: #f7fafc;
-      }
     </style>
   </head>
   <body>
@@ -47,64 +31,103 @@
     <script type="text/babel" data-type="module">
       import React, { useState, useEffect } from "react";
       import ReactDOM from "react-dom/client";
-      import { ChakraProvider, Container, VStack, HStack, Heading, Text, Box, Button, Flex, SimpleGrid, Center, ColorModeScript, extendTheme } from "@chakra-ui/react";
-      import { File as FileIcon, Folder as FolderIcon, Music as MusicIcon, Clock as ClockIcon } from "lucide-react";
+      import {
+        ChakraProvider,
+        Container,
+        VStack,
+        HStack,
+        Heading,
+        Text,
+        Box,
+        Button,
+        Flex,
+        SimpleGrid,
+        Center,
+        ColorModeScript,
+        extendTheme,
+        Modal,
+        ModalOverlay,
+        ModalContent,
+        ModalHeader,
+        ModalBody,
+        ModalCloseButton,
+        ModalFooter,
+        FormControl,
+        FormLabel,
+        Input,
+        useDisclosure,
+        IconButton,
+      } from "@chakra-ui/react";
+      
+      import { File as FileIcon, Folder as FolderIcon, Music as MusicIcon, Clock as ClockIcon, Plus as PlusIcon, Trash2 as TrashIcon, Edit as EditIcon, ExternalLink as LinkIcon } from "lucide-react";
 
       const theme = extendTheme({
         config: {
-          initialColorMode: 'dark',
+          initialColorMode: "dark",
           useSystemColorMode: false,
         },
         styles: {
           global: (props) => ({
             body: {
-              bg: 'gray.800',
-              color: 'white'
-            }
-          })
-        }
+              bg: "gray.800",
+              color: "white",
+            },
+          }),
+        },
       });
 
       const useFileSystem = () => {
         const [rootHandle, setRootHandle] = useState(null);
         const [genres, setGenres] = useState([]);
-        const [files, setFiles] = useState([]);
         const [error, setError] = useState(null);
         const [showPermissionDialog, setShowPermissionDialog] = useState(true);
-        const { recentFiles, addRecentFile } = useRecentFiles();
 
-        // Restore directory handle on mount
-        useEffect(() => {
-          const restoreAccess = async () => {
+        // Function to load links from JSON file
+        const loadLinks = async (dirHandle) => {
+          try {
+            let linksHandle;
             try {
-              // Try to get the stored directory handle
-              const stored = localStorage.getItem("guitarTabsDirectory");
-              if (stored) {
-                const handle = JSON.parse(stored);
-                if (handle) {
-                  const dirHandle = await window.showDirectoryPicker({
-                    startIn: handle,
-                    mode: "read",
-                  });
-                  await loadDirectory(dirHandle);
-                  setRootHandle(dirHandle);
-                  setShowPermissionDialog(false);
-                }
-              }
-            } catch (err) {
-              console.error("Failed to restore directory access:", err);
-              setShowPermissionDialog(true);
+              linksHandle = await dirHandle.getFileHandle("links.json");
+            } catch (e) {
+              // File doesn't exist, create it
+              linksHandle = await dirHandle.getFileHandle("links.json", { create: true });
+              const writable = await linksHandle.createWritable();
+              await writable.write(JSON.stringify({}));
+              await writable.close();
             }
-          };
 
-          restoreAccess();
-        }, []);
+            const file = await linksHandle.getFile();
+            const content = await file.text();
+            return content ? JSON.parse(content) : {};
+          } catch (err) {
+            console.error("Error loading links:", err);
+            return {};
+          }
+        };
 
+        // Function to save links to JSON file
+        const saveLinks = async (dirHandle, links) => {
+          try {
+            const linksHandle = await dirHandle.getFileHandle("links.json", { create: true });
+            const writable = await linksHandle.createWritable();
+            await writable.write(JSON.stringify(links, null, 2));
+            await writable.close();
+            return true;
+          } catch (err) {
+            console.error("Error saving links:", err);
+            return false;
+          }
+        };
+
+        // Function to load directory contents
         const loadDirectory = async (dirHandle) => {
           try {
             const genresList = [];
+            const links = await loadLinks(dirHandle);
+
+            // Load folders and PDF files
             for await (const entry of dirHandle.values()) {
-              // Skip .git folder
+              // Skip .git folder and links.json
               if (entry.kind === "directory" && entry.name !== ".git") {
                 const files = [];
                 for await (const fileEntry of entry.values()) {
@@ -113,9 +136,27 @@
                       name: fileEntry.name,
                       handle: fileEntry,
                       genre: entry.name,
+                      isPdf: true,
                     });
                   }
                 }
+
+                // Add links for this genre if they exist
+                if (links[entry.name]) {
+                    for (const artist in links[entry.name]) {
+                      for (const song in links[entry.name][artist]) {
+                        files.push({
+                          name: `${artist} - ${song}`,
+                          url: links[entry.name][artist][song],
+                          genre: entry.name,
+                          artist: artist,
+                          song: song,
+                          isLink: true,
+                        });
+                      }
+                    }
+                  }
+
                 genresList.push({
                   name: entry.name,
                   handle: entry,
@@ -131,18 +172,41 @@
           }
         };
 
+        useEffect(() => {
+          const restoreAccess = async () => {
+            try {
+              const stored = localStorage.getItem("guitarTabsDirectory");
+              if (stored) {
+                const handle = JSON.parse(stored);
+                if (handle) {
+                  const dirHandle = await window.showDirectoryPicker({
+                    startIn: handle,
+                    mode: "readwrite",
+                  });
+                  await loadDirectory(dirHandle);
+                  setRootHandle(dirHandle);
+                  setShowPermissionDialog(false);
+                }
+              }
+            } catch (err) {
+              console.error("Failed to restore directory access:", err);
+              setShowPermissionDialog(true);
+            }
+          };
+
+          restoreAccess();
+        }, []);
+
         const initializeDirectory = async () => {
           try {
-            // Try to start in the Documents directory
             const handle = await window.showDirectoryPicker({
-              mode: "read",
+              mode: "readwrite",
             });
 
             try {
-              const permission = await handle.requestPermission({ mode: "read" });
+              const permission = await handle.requestPermission({ mode: "readwrite" });
               if (permission === "granted") {
                 await loadDirectory(handle);
-                // Store the directory handle
                 localStorage.setItem("guitarTabsDirectory", JSON.stringify(handle));
                 setRootHandle(handle);
                 setShowPermissionDialog(false);
@@ -157,13 +221,70 @@
           }
         };
 
+        const deleteLink = async (dirHandle, genre, artist, song) => {
+          try {
+            const links = await loadLinks(dirHandle);
+            if (links[genre]?.[artist]?.[song]) {
+              delete links[genre][artist][song];
+
+              // Clean up empty objects
+              if (Object.keys(links[genre][artist]).length === 0) {
+                delete links[genre][artist];
+              }
+              if (Object.keys(links[genre]).length === 0) {
+                delete links[genre];
+              }
+
+              const success = await saveLinks(dirHandle, links);
+              if (success) {
+                await loadDirectory(dirHandle);
+                return true;
+              }
+            }
+            return false;
+          } catch (err) {
+            console.error("Error deleting link:", err);
+            return false;
+          }
+        };
+
+        const updateLink = async (dirHandle, oldData, newData) => {
+          try {
+            const links = await loadLinks(dirHandle);
+
+            // Remove old link
+            if (links[oldData.genre]?.[oldData.artist]?.[oldData.song]) {
+              delete links[oldData.genre][oldData.artist][oldData.song];
+            }
+
+            // Add new link
+            if (!links[newData.genre]) links[newData.genre] = {};
+            if (!links[newData.genre][newData.artist]) links[newData.genre][newData.artist] = {};
+            links[newData.genre][newData.artist][newData.song] = newData.url;
+
+            const success = await saveLinks(dirHandle, links);
+            if (success) {
+              await loadDirectory(dirHandle);
+              return true;
+            }
+            return false;
+          } catch (err) {
+            console.error("Error updating link:", err);
+            return false;
+          }
+        };
+
         return {
           rootHandle,
           genres,
-          files,
-          error,
           initializeDirectory,
+          error,
           showPermissionDialog,
+          loadLinks,
+          saveLinks,
+          loadDirectory,
+          deleteLink,
+          updateLink,
         };
       };
 
@@ -190,75 +311,80 @@
 
       const parseFileName = (fileName) => {
         // Remove .pdf extension
-        const namePart = fileName.replace('.pdf', '');
-        
+        const namePart = fileName.replace(".pdf", "");
+
         // Split artist and song by ' - '
-        const [artistPart, songPart] = namePart.split(' - ').map(p => p.trim());
-        
+        const [artistPart, songPart] = namePart.split(" - ").map((p) => p.trim());
+
         // Parse artist name
         let japaneseArtist = null;
         let englishArtist = null;
-        
-        if (artistPart.includes('(')) {
+
+        if (artistPart.includes("(")) {
           // Format: 米津玄師 (Kenshi Yonezu)
-          const [jName, eName] = artistPart.split('(');
+          const [jName, eName] = artistPart.split("(");
           japaneseArtist = jName.trim();
-          englishArtist = eName.replace(')', '').trim();
+          englishArtist = eName.replace(")", "").trim();
         } else {
           // Format: Kenshi Yonezu
           englishArtist = artistPart;
         }
-        
+
         // Parse song name
         let japaneseSong = null;
         let englishSong = null;
-        
-        if (songPart.includes('(')) {
+
+        if (songPart.includes("(")) {
           // Format: Lemon (レモン)
-          const [eName, jName] = songPart.split('(');
+          const [eName, jName] = songPart.split("(");
           englishSong = eName.trim();
-          japaneseSong = jName.replace(')', '').trim();
+          japaneseSong = jName.replace(")", "").trim();
         } else {
           // Format: Lemon
           englishSong = songPart;
         }
-        
+
         return {
           artist: {
             japanese: japaneseArtist,
             english: englishArtist,
-            display: japaneseArtist ? `${japaneseArtist} (${englishArtist})` : englishArtist
+            display: japaneseArtist ? `${japaneseArtist} (${englishArtist})` : englishArtist,
           },
           song: {
             japanese: japaneseSong,
             english: englishSong,
-            display: japaneseSong ? `${englishSong} (${japaneseSong})` : englishSong
+            display: japaneseSong ? `${englishSong} (${japaneseSong})` : englishSong,
           },
-          fileName
+          fileName,
         };
       };
-      
+
       const groupFilesByArtist = (files) => {
         const artistMap = new Map();
-        
-        files.forEach(file => {
+
+        files.forEach((file) => {
           const parsedFile = parseFileName(file.name);
-          
+
           const artistKey = parsedFile.artist.display;
           if (!artistMap.has(artistKey)) {
             artistMap.set(artistKey, {
               artist: parsedFile.artist,
-              songs: []
+              songs: [],
             });
           }
-          
+
           artistMap.get(artistKey).songs.push({
             ...parsedFile.song,
             fileName: file.name,
-            handle: file.handle
+            handle: file.handle,
+            url: file.url,
+            isLink: file.isLink,
+            genre: file.genre,
+            artist: file.artist,
+            song: file.song
           });
         });
-        
+
         return Array.from(artistMap.values());
       };
 
@@ -270,10 +396,10 @@
             p={6}
             cursor="pointer"
             onClick={() => onClick(genre)}
-            _hover={{ 
-              bg: 'gray.700',
-              transform: 'translateY(-4px)',
-              boxShadow: 'xl'
+            _hover={{
+              bg: "gray.700",
+              transform: "translateY(-4px)",
+              boxShadow: "xl",
             }}
             bg="gray.900"
             height="250px"
@@ -290,19 +416,11 @@
               <VStack spacing={6}>
                 <MusicIcon size={48} />
                 <VStack spacing={3}>
-                  <Text 
-                    fontSize="2xl" 
-                    fontWeight="bold" 
-                    textAlign="center"
-                  >
+                  <Text fontSize="2xl" fontWeight="bold" textAlign="center">
                     {genre.name}
                   </Text>
-                  <Text 
-                    fontSize="lg" 
-                    color="gray.400" 
-                    textAlign="center"
-                  >
-                    {genre.files.length} {genre.files.length === 1 ? 'tab' : 'tabs'}
+                  <Text fontSize="lg" color="gray.400" textAlign="center">
+                    {genre.files.length} {genre.files.length === 1 ? "tab" : "tabs"}
                   </Text>
                 </VStack>
               </VStack>
@@ -321,18 +439,10 @@
 
         return (
           <Flex justify="center" w="full">
-            <SimpleGrid 
-              columns={getColumnCount(genres.length)}
-              spacing={8}
-              w="full"
-              px={4}
-            >
+            <SimpleGrid columns={getColumnCount(genres.length)} spacing={8} w="full" px={4}>
               {genres.map((genre) => (
                 <Center key={genre.name}>
-                  <GenreCard 
-                    genre={genre} 
-                    onClick={onGenreClick}
-                  />
+                  <GenreCard genre={genre} onClick={onGenreClick} />
                 </Center>
               ))}
             </SimpleGrid>
@@ -348,7 +458,7 @@
             p={6}
             bg="gray.900"
             w="full"
-            h="full"  // Take full height of grid cell
+            h="full" // Take full height of grid cell
             display="flex"
             flexDirection="column"
           >
@@ -356,16 +466,10 @@
               <Heading size="md" textAlign="center" isTruncated>
                 {artist.display}
               </Heading>
-              
+
               <VStack spacing={2} align="start" w="full" flex="1">
-                {songs.slice(0, 3).map(song => (
-                  <Text 
-                    key={song.fileName} 
-                    fontSize="sm" 
-                    color="gray.400"
-                    isTruncated
-                    w="full"
-                  >
+                {songs.slice(0, 3).map((song) => (
+                  <Text key={song.fileName} fontSize="sm" color="gray.400" isTruncated w="full">
                     {song.display}
                   </Text>
                 ))}
@@ -375,21 +479,15 @@
                   </Text>
                 )}
               </VStack>
-              
-              <Button
-                size="sm"
-                onClick={onViewAll}
-                bg="gray.800"
-                _hover={{ bg: 'gray.700' }}
-                colorScheme="blue"
-              >
+
+              <Button size="sm" onClick={onViewAll} bg="gray.800" _hover={{ bg: "gray.700" }} colorScheme="blue">
                 View All Songs
               </Button>
             </VStack>
           </Box>
         );
       };
-      
+
       const ArtistView = ({ artists, onSelectArtist, onBackToGenre }) => {
         return (
           <VStack spacing={8} align="stretch">
@@ -400,10 +498,10 @@
                 bg="gray.900"
                 borderWidth="2px"
                 borderColor="gray.700"
-                _hover={{ 
-                  bg: 'gray.700',
-                  transform: 'translateY(-1px)',
-                  boxShadow: 'lg'
+                _hover={{
+                  bg: "gray.700",
+                  transform: "translateY(-1px)",
+                  boxShadow: "lg",
                 }}
                 transition="all 0.2s"
                 colorScheme="blue"
@@ -412,29 +510,293 @@
               </Button>
               <Heading size="lg">Artists</Heading>
             </HStack>
-            
+
             <Box
               css={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-                gap: '1rem',
-                '& > *': {
-                  height: 'auto'
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
+                gap: "1rem",
+                "& > *": {
+                  height: "auto",
                 },
-                '@supports (grid-template-rows: masonry)': {
-                  gridTemplateRows: 'masonry'
-                }
+                "@supports (grid-template-rows: masonry)": {
+                  gridTemplateRows: "masonry",
+                },
               }}
             >
               {artists.map(({ artist, songs }) => (
-                <ArtistCard
-                  key={artist.display}
-                  artist={artist}
-                  songs={songs}
-                  onViewAll={() => onSelectArtist({ artist, songs })}
-                />
+                <ArtistCard key={artist.display} artist={artist} songs={songs} onViewAll={() => onSelectArtist({ artist, songs })} />
               ))}
             </Box>
+          </VStack>
+        );
+      };
+
+      const LinkForm = ({ rootHandle, onSave, loadDirectory, loadLinks, saveLinks }) => {
+        const [genre, setGenre] = useState("");
+        const [artist, setArtist] = useState("");
+        const [song, setSong] = useState("");
+        const [url, setUrl] = useState("");
+        const [isLoading, setIsLoading] = useState(false);
+        const [error, setError] = useState(null);
+
+        const handleSubmit = async (e) => {
+          e.preventDefault();
+          setIsLoading(true);
+          setError(null);
+
+          try {
+            const links = await loadLinks(rootHandle);
+            if (!links[genre]) links[genre] = {};
+            if (!links[genre][artist]) links[genre][artist] = {};
+            links[genre][artist][song] = url;
+
+            const success = await saveLinks(rootHandle, links);
+
+            if (success) {
+              await loadDirectory(rootHandle);
+              setGenre("");
+              setArtist("");
+              setSong("");
+              setUrl("");
+              onSave();
+            } else {
+              setError("Failed to save link");
+            }
+          } catch (err) {
+            console.error("Error saving link:", err);
+            setError("Error saving link: " + err.message);
+          } finally {
+            setIsLoading(false);
+          }
+        };
+
+        return (
+          <VStack spacing={4} as="form" onSubmit={handleSubmit}>
+            {error && <Text color="red.500">{error}</Text>}
+            <FormControl isRequired>
+              <FormLabel>Genre</FormLabel>
+              <Input value={genre} onChange={(e) => setGenre(e.target.value)} />
+            </FormControl>
+
+            <FormControl isRequired>
+              <FormLabel>Artist</FormLabel>
+              <Input value={artist} onChange={(e) => setArtist(e.target.value)} />
+            </FormControl>
+
+            <FormControl isRequired>
+              <FormLabel>Song</FormLabel>
+              <Input value={song} onChange={(e) => setSong(e.target.value)} />
+            </FormControl>
+
+            <FormControl isRequired>
+              <FormLabel>URL</FormLabel>
+              <Input type="url" value={url} onChange={(e) => setUrl(e.target.value)} />
+            </FormControl>
+
+            <Button type="submit" colorScheme="blue" isLoading={isLoading}>
+              Save Link
+            </Button>
+          </VStack>
+        );
+      };
+
+      const SongBox = ({ song, onDelete, onEdit, onClick }) => {
+        return (
+          <Box borderWidth="1px" borderRadius="lg" p={4} cursor="pointer" onClick={() => onClick(song)} _hover={{ bg: "gray.700" }} bg="gray.900">
+            <VStack align="center" spacing={2}>
+              {song.isLink ? <LinkIcon size={16} /> : <FileIcon size={16} />}
+              <Text textAlign="center">{song.display}</Text>
+              {song.isLink && (
+                <HStack spacing={2} mt={2}>
+                  <IconButton
+                    aria-label="Edit link"
+                    icon={<EditIcon size={16} />}
+                    size="sm"
+                    colorScheme="blue"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(song);
+                    }}
+                  />
+                  <IconButton
+                    aria-label="Delete link"
+                    icon={<TrashIcon size={16} />}
+                    size="sm"
+                    colorScheme="red"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(song);
+                    }}
+                  />
+                </HStack>
+              )}
+            </VStack>
+          </Box>
+        );
+      };
+
+      const DeleteConfirmationModal = ({ isOpen, onClose, onDelete }) => {
+        return (
+          <Modal isOpen={isOpen} onClose={onClose}>
+            <ModalOverlay />
+            <ModalContent bg="gray.800">
+              <ModalHeader>Confirm Delete</ModalHeader>
+              <ModalCloseButton />
+              <ModalBody pb={6}>
+                <Text>Are you sure you want to delete this link?</Text>
+              </ModalBody>
+              <ModalFooter>
+                <Button colorScheme="red" mr={3} onClick={onDelete}>
+                  Delete
+                </Button>
+                <Button onClick={onClose}>Cancel</Button>
+              </ModalFooter>
+            </ModalContent>
+          </Modal>
+        );
+      };
+
+      const EditLinkModal = ({ isOpen, onClose, target, onSave }) => {
+        const [genre, setGenre] = useState(target?.genre || "");
+        const [artist, setArtist] = useState(target?.artist || "");
+        const [song, setSong] = useState(target?.song || "");
+        const [url, setUrl] = useState(target?.url || "");
+        const [isLoading, setIsLoading] = useState(false);
+        const [error, setError] = useState(null);
+
+        useEffect(() => {
+          if (target) {
+            setGenre(target.genre);
+            setArtist(target.artist);
+            setSong(target.song);
+            setUrl(target.url);
+          }
+        }, [target]);
+
+        const handleSubmit = async (e) => {
+          e.preventDefault();
+          setIsLoading(true);
+          setError(null);
+
+          try {
+            await onSave({ genre, artist, song, url });
+            onClose();
+          } catch (err) {
+            setError("Error updating link: " + err.message);
+          } finally {
+            setIsLoading(false);
+          }
+        };
+
+        return (
+          <Modal isOpen={isOpen} onClose={onClose}>
+            <ModalOverlay />
+            <ModalContent bg="gray.800">
+              <ModalHeader>Edit Link</ModalHeader>
+              <ModalCloseButton />
+              <ModalBody pb={6}>
+                <VStack spacing={4} as="form" onSubmit={handleSubmit}>
+                  {error && <Text color="red.500">{error}</Text>}
+
+                  <FormControl isRequired>
+                    <FormLabel>Genre</FormLabel>
+                    <Input value={genre} onChange={(e) => setGenre(e.target.value)} />
+                  </FormControl>
+
+                  <FormControl isRequired>
+                    <FormLabel>Artist</FormLabel>
+                    <Input value={artist} onChange={(e) => setArtist(e.target.value)} />
+                  </FormControl>
+
+                  <FormControl isRequired>
+                    <FormLabel>Song</FormLabel>
+                    <Input value={song} onChange={(e) => setSong(e.target.value)} />
+                  </FormControl>
+
+                  <FormControl isRequired>
+                    <FormLabel>URL</FormLabel>
+                    <Input type="url" value={url} onChange={(e) => setUrl(e.target.value)} />
+                  </FormControl>
+
+                  <HStack spacing={4} width="100%">
+                    <Button type="submit" colorScheme="blue" isLoading={isLoading} flex={1}>
+                      Save Changes
+                    </Button>
+                    <Button onClick={onClose} flex={1}>
+                      Cancel
+                    </Button>
+                  </HStack>
+                </VStack>
+              </ModalBody>
+            </ModalContent>
+          </Modal>
+        );
+      };
+
+      const SongView = ({ artist, onBackClick, onFileClick, onDeleteLink, onUpdateLink }) => {
+        const [deleteTarget, setDeleteTarget] = useState(null);
+        const [editTarget, setEditTarget] = useState(null);
+        const deleteModal = useDisclosure();
+        const editModal = useDisclosure();
+      
+        const handleDelete = async () => {
+          if (deleteTarget) {
+            await onDeleteLink(deleteTarget);
+            deleteModal.onClose();
+            setDeleteTarget(null);
+          }
+        };
+      
+        const handleEdit = async (newData) => {
+          if (editTarget) {
+            await onUpdateLink(editTarget, newData);
+            setEditTarget(null);
+          }
+        };
+      
+        return (
+          <VStack align="stretch" spacing={6}>
+            <DeleteConfirmationModal isOpen={deleteModal.isOpen} onClose={deleteModal.onClose} onDelete={handleDelete} />
+            <EditLinkModal isOpen={editModal.isOpen} onClose={editModal.onClose} target={editTarget} onSave={handleEdit} />
+      
+            <HStack justify="space-between">
+              <Button
+                leftIcon={<FolderIcon size={16} />}
+                onClick={onBackClick}
+                bg="gray.900"
+                borderWidth="2px"
+                borderColor="gray.700"
+                _hover={{
+                  bg: "gray.700",
+                  transform: "translateY(-1px)",
+                  boxShadow: "lg",
+                }}
+                transition="all 0.2s"
+                colorScheme="blue"
+              >
+                Back to Artists
+              </Button>
+              <Heading size="lg">{artist.artist.display}</Heading>
+            </HStack>
+      
+            <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
+              {artist.songs.map((song) => (
+                <SongBox
+                  key={song.fileName}
+                  song={song}
+                  onClick={onFileClick}
+                  onDelete={() => {
+                    setDeleteTarget(song);
+                    deleteModal.onOpen();
+                  }}
+                  onEdit={() => {
+                    setEditTarget(song);
+                    editModal.onOpen();
+                  }}
+                />
+              ))}
+            </SimpleGrid>
           </VStack>
         );
       };
@@ -442,48 +804,80 @@
       const GuitarTabs = () => {
         const [view, setView] = useState("home");
         const [currentGenre, setCurrentGenre] = useState("");
-        const { rootHandle, genres, initializeDirectory, error, showPermissionDialog } = useFileSystem();
         const { recentFiles, addRecentFile } = useRecentFiles();
         const [currentArtist, setCurrentArtist] = useState(null);
-      
+        const { isOpen, onOpen, onClose } = useDisclosure();
+        const [deleteTarget, setDeleteTarget] = useState(null);
+        const [editTarget, setEditTarget] = useState(null);
+        const { rootHandle, genres, initializeDirectory, error, showPermissionDialog, loadLinks, saveLinks, loadDirectory, deleteLink, updateLink } = useFileSystem();
+
         const handleGenreClick = (genre) => {
           const artists = groupFilesByArtist(genre.files);
           setCurrentGenre({ ...genre, artists });
           setView("artist");
         };
-      
+
         const handleArtistClick = (artist) => {
           setCurrentArtist(artist);
           setView("songs");
         };
-      
+
+        const handleDeleteLink = async (songData) => {
+            console.log('Deleting:', songData); // For debugging
+            const success = await deleteLink(
+              rootHandle,
+              songData.genre,
+              songData.artist || songData.fileName.split(' - ')[0], // Extract artist from filename if not provided
+              songData.song || songData.fileName.split(' - ')[1]    // Extract song from filename if not provided
+            );
+            if (success) {
+              // Refresh the current genre view
+              const currentGenreData = genres.find(g => g.name === currentGenre.name);
+              if (currentGenreData) {
+                const artists = groupFilesByArtist(currentGenreData.files);
+                setCurrentGenre({ ...currentGenreData, artists });
+              }
+            }
+          };
+
+        const handleUpdateLink = async (oldData, newData) => {
+          const success = await updateLink(rootHandle, oldData, newData);
+          if (success) {
+            await loadDirectory(rootHandle);
+          }
+        };
+
         const handleRecentFileClick = async (recentFile) => {
           const genre = genres.find((g) => g.name === recentFile.genre);
           if (!genre) {
             console.error("Genre not found");
             return;
           }
-      
+
           const file = genre.files.find((f) => f.name === recentFile.name);
           if (!file) {
             console.error("File not found");
             return;
           }
-      
+
           handleFileClick(file);
         };
-      
+
         const handleFileClick = async (file) => {
           try {
-            const fileData = await file.handle.getFile();
-            addRecentFile({ name: file.name, genre: file.genre });
-            const url = URL.createObjectURL(fileData);
-            window.open(url, "_blank");
+            if (file.isLink) {
+              window.open(file.url, "_blank");
+            } else {
+              const fileData = await file.handle.getFile();
+              addRecentFile({ name: file.name, genre: file.genre });
+              const url = URL.createObjectURL(fileData);
+              window.open(url, "_blank");
+            }
           } catch (err) {
             console.error("Error opening file:", err);
           }
         };
-      
+
         if (showPermissionDialog) {
           return (
             <Container maxW="container.xl" py={8}>
@@ -497,7 +891,7 @@
             </Container>
           );
         }
-      
+
         if (!rootHandle) {
           return (
             <Container maxW="container.xl" py={8}>
@@ -505,14 +899,40 @@
             </Container>
           );
         }
-      
+
         return (
           <Container maxW="container.xl" py={8}>
+            {/* Add Link Modal */}
+            <Modal isOpen={isOpen} onClose={onClose}>
+              <ModalOverlay />
+              <ModalContent bg="gray.800">
+                <ModalHeader>Add New Link</ModalHeader>
+                <ModalCloseButton />
+                <ModalBody pb={6}>
+                  <LinkForm
+                    rootHandle={rootHandle}
+                    onSave={() => {
+                      onClose();
+                    }}
+                    loadDirectory={loadDirectory}
+                    loadLinks={loadLinks} // Add this
+                    saveLinks={saveLinks} // Add this
+                  />
+                </ModalBody>
+              </ModalContent>
+            </Modal>
+
             {view === "home" ? (
               <VStack spacing={12} align="stretch">
-                <Heading size="lg" textAlign="center">Guitar Tabs</Heading>
-                
-                {/* Recent Files Section */}
+                {/* Header with Add Link Button */}
+                <Flex justify="space-between" align="center">
+                  <Heading size="lg">Guitar Tabs</Heading>
+                  <Button leftIcon={<PlusIcon size={16} />} onClick={onOpen} colorScheme="blue" size="md">
+                    Add Link
+                  </Button>
+                </Flex>
+
+                {/* Rest of your home view content */}
                 {recentFiles.length > 0 && (
                   <Box>
                     <Heading size="md" mb={6} textAlign="center">
@@ -523,29 +943,20 @@
                     </Heading>
                     <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
                       {recentFiles.map((file) => (
-                        <Box
+                        <SongBox
                           key={file.name}
-                          borderWidth="1px"
-                          borderRadius="lg"
-                          p={4}
-                          cursor="pointer"
+                          song={{
+                            fileName: file.name,
+                            display: file.name,
+                            genre: file.genre,
+                          }}
                           onClick={() => handleRecentFileClick(file)}
-                          _hover={{ bg: 'gray.700' }}
-                          bg="gray.900"
-                        >
-                          <VStack align="center" spacing={1}>
-                            <FileIcon size={16} />
-                            <Text textAlign="center">{file.name}</Text>
-                            <Text fontSize="sm" color="gray.400" textAlign="center">
-                              {file.genre}
-                            </Text>
-                          </VStack>
-                        </Box>
+                        />
                       ))}
                     </SimpleGrid>
                   </Box>
                 )}
-      
+
                 {/* Genres Section */}
                 <Box>
                   <Heading size="md" mb={6} textAlign="center">
@@ -564,66 +975,29 @@
                 </Box>
               </VStack>
             ) : view === "artist" ? (
-              <ArtistView
-                artists={currentGenre.artists}
-                onSelectArtist={handleArtistClick}
-                onBackToGenre={() => setView("home")}
-              />
+              <ArtistView artists={currentGenre.artists} onSelectArtist={handleArtistClick} onBackToGenre={() => setView("home")} />
             ) : view === "songs" ? (
-              <VStack align="stretch" spacing={6}>
-                <HStack justify="space-between">
-                  <Button
-                    leftIcon={<FolderIcon size={16} />}
-                    onClick={() => setView("artist")}
-                    bg="gray.900"
-                    borderWidth="2px"
-                    borderColor="gray.700"
-                    _hover={{ 
-                      bg: 'gray.700',
-                      transform: 'translateY(-1px)',
-                      boxShadow: 'lg'
-                    }}
-                    transition="all 0.2s"
-                    colorScheme="blue"
-                  >
-                    Back to Artists
-                  </Button>
-                  <Heading size="lg">{currentArtist.artist.display}</Heading>
-                </HStack>
-                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
-                  {currentArtist.songs.map((song) => (
-                    <Box
-                      key={song.fileName}
-                      borderWidth="1px"
-                      borderRadius="lg"
-                      p={4}
-                      cursor="pointer"
-                      onClick={() => handleFileClick({name: song.fileName, handle: song.handle})}
-                      _hover={{ bg: 'gray.700' }}
-                      bg="gray.900"
-                    >
-                      <VStack align="center" spacing={2}>
-                        <FileIcon size={16} />
-                        <Text textAlign="center">{song.display}</Text>
-                      </VStack>
-                    </Box>
-                  ))}
-                </SimpleGrid>
-              </VStack>
-            ) : null}
+                <SongView 
+                  artist={currentArtist} // Pass the entire currentArtist object
+                  onBackClick={() => setView("artist")} 
+                  onFileClick={handleFileClick} 
+                  onDeleteLink={handleDeleteLink} 
+                  onUpdateLink={handleUpdateLink} 
+                />
+              ) : null }
           </Container>
         );
       };
-  
-        const root = ReactDOM.createRoot(document.getElementById("root"));
-        root.render(
-          <React.StrictMode>
-            <ChakraProvider theme={theme}>
-              <ColorModeScript initialColorMode={theme.config.initialColorMode} />
-              <GuitarTabs />
-            </ChakraProvider>
-          </React.StrictMode>
-        );
-      </script>
-    </body>
-  </html>
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(
+        <React.StrictMode>
+          <ChakraProvider theme={theme}>
+            <ColorModeScript initialColorMode={theme.config.initialColorMode} />
+            <GuitarTabs />
+          </ChakraProvider>
+        </React.StrictMode>
+      );
+    </script>
+  </body>
+</html>
