@@ -119,7 +119,7 @@
       /**
        * Defines the application's dark theme configuration
        */
-       const theme = extendTheme({
+      const theme = extendTheme({
         config: {
           initialColorMode: "dark",
           useSystemColorMode: false,
@@ -129,8 +129,8 @@
             body: {
               bg: "gray.800",
               color: "white",
-            }
-          }
+            },
+          },
         },
         // Add explicit color overrides
         colors: {
@@ -140,53 +140,53 @@
             200: "#90caf9",
             300: "#64b5f6",
             400: "#42a5f5",
-            500: "#2196f3",  // Default button color
+            500: "#2196f3", // Default button color
             600: "#1e88e5",
-            700: "#1976d2",  // Hover state
+            700: "#1976d2", // Hover state
             800: "#1565c0",
-            900: "#0d47a1"
-          }
+            900: "#0d47a1",
+          },
         },
         components: {
           Button: {
             defaultProps: {
-              colorScheme: 'blue',
+              colorScheme: "blue",
             },
             variants: {
               solid: (props) => ({
-                bg: 'blue.500',
-                color: 'white',
+                bg: "blue.500",
+                color: "white",
                 _hover: {
-                  bg: 'blue.700',
-                }
+                  bg: "blue.700",
+                },
               }),
               ghost: {
                 _hover: {
-                  bg: 'whiteAlpha.200'
-                }
-              }
-            }
+                  bg: "whiteAlpha.200",
+                },
+              },
+            },
           },
           IconButton: {
             defaultProps: {
-              colorScheme: 'blue',
+              colorScheme: "blue",
             },
             variants: {
               solid: (props) => ({
-                bg: 'blue.500',
-                color: 'white',
+                bg: "blue.500",
+                color: "white",
                 _hover: {
-                  bg: 'blue.700',
-                }
+                  bg: "blue.700",
+                },
               }),
               ghost: {
                 _hover: {
-                  bg: 'whiteAlpha.200'
-                }
-              }
-            }
-          }
-        }
+                  bg: "whiteAlpha.200",
+                },
+              },
+            },
+          },
+        },
       });
 
       //==============================================
@@ -1147,10 +1147,10 @@
           try {
             if (file.isLink) {
               window.open(file.url, "_blank");
-              
+
               // Parse the name to get proper japanese/english fields
               const parsedName = parseFileName(`${file.artist} - ${file.song}`);
-              
+
               const recentLinkData = {
                 name: `${file.artist} - ${file.song}`,
                 genre: file.genre,
@@ -1161,18 +1161,18 @@
                 song: file.song,
                 fileName: `${file.artist} - ${file.song}`,
                 japanese: parsedName.song.japanese,
-                english: parsedName.song.english
+                english: parsedName.song.english,
               };
-        
+
               addRecentFile(recentLinkData);
             } else {
               const fileData = await file.handle.getFile();
               const url = URL.createObjectURL(fileData);
               window.open(url, "_blank");
-              
+
               // Parse the PDF file name
               const parsedName = parseFileName(file.handle.name);
-              
+
               addRecentFile({
                 name: file.handle.name,
                 genre: file.genre,
@@ -1181,54 +1181,53 @@
                 handle: file.handle,
                 fileName: file.handle.name,
                 japanese: parsedName.song.japanese,
-                english: parsedName.song.english
+                english: parsedName.song.english,
               });
             }
           } catch (err) {
             console.error("Error opening file:", err);
           }
         };
-        
 
         const handleRecentFileClick = async (recentFile) => {
           if (recentFile.isLink && recentFile.url) {
             window.open(recentFile.url, "_blank");
-            
+
             // Ensure we maintain all the parsed name information
             const parsedName = parseFileName(recentFile.name);
             addRecentFile({
               ...recentFile,
               display: parsedName.song.display,
               japanese: parsedName.song.japanese,
-              english: parsedName.song.english
+              english: parsedName.song.english,
             });
             return;
           }
-        
+
           const genre = genres.find((g) => g.name === recentFile.genre);
           if (!genre) {
             console.error("Genre not found:", recentFile.genre);
             return;
           }
-        
+
           const file = genre.files.find((f) => f.name === recentFile.name);
           if (!file) {
             console.error("File not found:", recentFile.name);
             return;
           }
-        
+
           try {
             const fileData = await file.handle.getFile();
             const url = URL.createObjectURL(fileData);
             window.open(url, "_blank");
-            
+
             // Parse the name when re-adding to recents
             const parsedName = parseFileName(recentFile.name);
             addRecentFile({
               ...recentFile,
               display: parsedName.song.display,
               japanese: parsedName.song.japanese,
-              english: parsedName.song.english
+              english: parsedName.song.english,
             });
           } catch (err) {
             console.error("Error opening file:", err);
