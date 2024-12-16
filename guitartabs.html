@@ -708,7 +708,7 @@
        * @param {Function} props.onEdit - Edit click handler
        * @param {Function} props.onClick - Click handler for opening the song
        */
-      const SongBox = ({ song, onDelete, onEdit, onClick }) => {
+      const SongBox = ({ song, onDelete, onEdit, onClick, isInRecents = false }) => {
         const getSongDisplay = () => {
           if (song.japanese && song.english) {
             return (
@@ -727,7 +727,7 @@
             <VStack align="center" spacing={3}>
               <Box position="relative" w="full">
                 <Center>{song.isLink ? <LinkIcon size={16} /> : <FileIcon size={16} />}</Center>
-                {song.isLink && (
+                {song.isLink && !isInRecents && (
                   <HStack spacing={2} position="absolute" top="50%" right={0} transform="translateY(-50%)">
                     <IconButton
                       aria-label="Edit link"
@@ -1147,6 +1147,7 @@
                               genre: file.genre,
                             }}
                             onClick={() => handleRecentFileClick(file)}
+                            isInRecents={true}
                           />
                         ))}
                     </SimpleGrid>
