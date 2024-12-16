@@ -58,9 +58,16 @@
         useDisclosure,
         IconButton,
       } from "@chakra-ui/react";
-      
+
       import { File as FileIcon, Folder as FolderIcon, Music as MusicIcon, Clock as ClockIcon, Plus as PlusIcon, Trash2 as TrashIcon, Edit as EditIcon, ExternalLink as LinkIcon } from "lucide-react";
 
+      //==============================================
+      // Theme Configuration
+      //==============================================
+
+      /**
+       * Defines the application's dark theme configuration
+       */
       const theme = extendTheme({
         config: {
           initialColorMode: "dark",
@@ -76,6 +83,15 @@
         },
       });
 
+      //==============================================
+      // Custom Hooks
+      //==============================================
+
+      /**
+       * Custom hook for managing file system operations
+       * Handles directory access, file loading, and link management
+       * @returns {Object} File system operations and state
+       */
       const useFileSystem = () => {
         const [rootHandle, setRootHandle] = useState(null);
         const [genres, setGenres] = useState([]);
@@ -143,19 +159,19 @@
 
                 // Add links for this genre if they exist
                 if (links[entry.name]) {
-                    for (const artist in links[entry.name]) {
-                      for (const song in links[entry.name][artist]) {
-                        files.push({
-                          name: `${artist} - ${song}`,
-                          url: links[entry.name][artist][song],
-                          genre: entry.name,
-                          artist: artist,
-                          song: song,
-                          isLink: true,
-                        });
-                      }
+                  for (const artist in links[entry.name]) {
+                    for (const song in links[entry.name][artist]) {
+                      files.push({
+                        name: `${artist} - ${song}`,
+                        url: links[entry.name][artist][song],
+                        genre: entry.name,
+                        artist: artist,
+                        song: song,
+                        isLink: true,
+                      });
                     }
                   }
+                }
 
                 genresList.push({
                   name: entry.name,
@@ -288,6 +304,10 @@
         };
       };
 
+      /**
+       * Custom hook for managing recently accessed files
+       * @returns {Object} Recent files state and operations
+       */
       const useRecentFiles = () => {
         const [recentFiles, setRecentFiles] = useState([]);
         const RECENT_FILES_KEY = "recentGuitarTabs";
@@ -309,6 +329,16 @@
         return { recentFiles, addRecentFile };
       };
 
+      //==============================================
+      // Utility Functions
+      //==============================================
+
+      /**
+       * Parses a filename to extract artist and song information
+       * Handles both English and Japanese format names
+       * @param {string} fileName - The filename to parse
+       * @returns {Object} Parsed artist and song information
+       */
       const parseFileName = (fileName) => {
         // Remove .pdf extension
         const namePart = fileName.replace(".pdf", "");
@@ -359,6 +389,11 @@
         };
       };
 
+      /**
+       * Groups files by artist and organizes them into a structured format
+       * @param {Array} files - Array of file objects to group
+       * @returns {Array} Grouped files organized by artist
+       */
       const groupFilesByArtist = (files) => {
         const artistMap = new Map();
 
@@ -381,13 +416,23 @@
             isLink: file.isLink,
             genre: file.genre,
             artist: file.artist,
-            song: file.song
+            song: file.song,
           });
         });
 
         return Array.from(artistMap.values());
       };
 
+      //==============================================
+      // Component Definitions
+      //==============================================
+
+      /**
+       * Displays a single genre card with title and file count
+       * @param {Object} props - Component properties
+       * @param {Object} props.genre - Genre information
+       * @param {Function} props.onClick - Click handler
+       */
       const GenreCard = ({ genre, onClick }) => {
         return (
           <Box
@@ -429,6 +474,12 @@
         );
       };
 
+      /**
+       * Grid layout for displaying multiple genre cards
+       * @param {Object} props - Component properties
+       * @param {Array} props.genres - List of genres to display
+       * @param {Function} props.onGenreClick - Click handler for genre selection
+       */
       const GenreGrid = ({ genres, onGenreClick }) => {
         const getColumnCount = (count) => {
           if (count === 1) return { base: 1 };
@@ -450,6 +501,13 @@
         );
       };
 
+      /**
+       * Displays a card for an artist with their name and songs
+       * @param {Object} props - Component properties
+       * @param {Object} props.artist - Artist information
+       * @param {Array} props.songs - List of songs by the artist
+       * @param {Function} props.onViewAll - Click handler for viewing all songs
+       */
       const ArtistCard = ({ artist, songs, onViewAll }) => {
         return (
           <Box
@@ -488,6 +546,13 @@
         );
       };
 
+      /**
+       * Displays a list of artists with their songs
+       * @param {Object} props - Component properties
+       * @param {Array} props.artists - List of artists to display
+       * @param {Function} props.onSelectArtist - Click handler for selecting an artist
+       * @param {Function} props.onBackToGenre - Click handler for going back to genre view
+       */
       const ArtistView = ({ artists, onSelectArtist, onBackToGenre }) => {
         return (
           <VStack spacing={8} align="stretch">
@@ -532,6 +597,15 @@
         );
       };
 
+      /**
+       * Form for adding a new link to the directory
+       * @param {Object} props - Component properties
+       * @param {FileSystemDirectoryHandle} props.rootHandle - Root directory handle
+       * @param {Function} props.onSave - Save completion handler
+       * @param {Function} props.loadDirectory - Directory reload function
+       * @param {Function} props.loadLinks - Links load function
+       * @param {Function} props.saveLinks - Links save function
+       */
       const LinkForm = ({ rootHandle, onSave, loadDirectory, loadLinks, saveLinks }) => {
         const [genre, setGenre] = useState("");
         const [artist, setArtist] = useState("");
@@ -601,6 +675,14 @@
         );
       };
 
+      /**
+       * Displays a box for a single song with options to edit or delete
+       * @param {Object} props - Component properties
+       * @param {Object} props.song - Song information
+       * @param {Function} props.onDelete - Delete click handler
+       * @param {Function} props.onEdit - Edit click handler
+       * @param {Function} props.onClick - Click handler for opening the song
+       */
       const SongBox = ({ song, onDelete, onEdit, onClick }) => {
         return (
           <Box borderWidth="1px" borderRadius="lg" p={4} cursor="pointer" onClick={() => onClick(song)} _hover={{ bg: "gray.700" }} bg="gray.900">
@@ -636,6 +718,13 @@
         );
       };
 
+      /**
+       * Modal for confirming deletion of a link
+       * @param {Object} props - Component properties
+       * @param {boolean} props.isOpen - Modal open state
+       * @param {Function} props.onClose - Modal close handler
+       * @param {Function} props.onDelete - Delete confirmation handler
+       */
       const DeleteConfirmationModal = ({ isOpen, onClose, onDelete }) => {
         return (
           <Modal isOpen={isOpen} onClose={onClose}>
@@ -657,6 +746,14 @@
         );
       };
 
+      /**
+       * Modal for editing a link
+       * @param {Object} props - Component properties
+       * @param {boolean} props.isOpen - Modal open state
+       * @param {Function} props.onClose - Modal close handler
+       * @param {Object} props.target - Link data to edit
+       * @param {Function} props.onSave - Save handler
+       */
       const EditLinkModal = ({ isOpen, onClose, target, onSave }) => {
         const [genre, setGenre] = useState(target?.genre || "");
         const [artist, setArtist] = useState(target?.artist || "");
@@ -734,12 +831,21 @@
         );
       };
 
+      /**
+       * Displays a single song view with artist and song information
+       * @param {Object} props - Component properties
+       * @param {Object} props.artist - Artist information
+       * @param {Function} props.onBackClick - Click handler for going back to genre view
+       * @param {Function} props.onFileClick - Click handler for opening a song
+       * @param {Function} props.onDeleteLink - Click handler for deleting a link
+       * @param {Function} props.onUpdateLink - Click handler for updating a link
+       */
       const SongView = ({ artist, onBackClick, onFileClick, onDeleteLink, onUpdateLink }) => {
         const [deleteTarget, setDeleteTarget] = useState(null);
         const [editTarget, setEditTarget] = useState(null);
         const deleteModal = useDisclosure();
         const editModal = useDisclosure();
-      
+
         const handleDelete = async () => {
           if (deleteTarget) {
             await onDeleteLink(deleteTarget);
@@ -747,19 +853,19 @@
             setDeleteTarget(null);
           }
         };
-      
+
         const handleEdit = async (newData) => {
           if (editTarget) {
             await onUpdateLink(editTarget, newData);
             setEditTarget(null);
           }
         };
-      
+
         return (
           <VStack align="stretch" spacing={6}>
             <DeleteConfirmationModal isOpen={deleteModal.isOpen} onClose={deleteModal.onClose} onDelete={handleDelete} />
             <EditLinkModal isOpen={editModal.isOpen} onClose={editModal.onClose} target={editTarget} onSave={handleEdit} />
-      
+
             <HStack justify="space-between">
               <Button
                 leftIcon={<FolderIcon size={16} />}
@@ -779,7 +885,7 @@
               </Button>
               <Heading size="lg">{artist.artist.display}</Heading>
             </HStack>
-      
+
             <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
               {artist.songs.map((song) => (
                 <SongBox
@@ -801,6 +907,14 @@
         );
       };
 
+      //==============================================
+      // Main Application Component
+      //==============================================
+
+      /**
+       * Main application component that manages the overall state and view hierarchy
+       * Handles navigation between views and file operations
+       */
       const GuitarTabs = () => {
         const [view, setView] = useState("home");
         const [currentGenre, setCurrentGenre] = useState("");
@@ -823,22 +937,22 @@
         };
 
         const handleDeleteLink = async (songData) => {
-            console.log('Deleting:', songData); // For debugging
-            const success = await deleteLink(
-              rootHandle,
-              songData.genre,
-              songData.artist || songData.fileName.split(' - ')[0], // Extract artist from filename if not provided
-              songData.song || songData.fileName.split(' - ')[1]    // Extract song from filename if not provided
-            );
-            if (success) {
-              // Refresh the current genre view
-              const currentGenreData = genres.find(g => g.name === currentGenre.name);
-              if (currentGenreData) {
-                const artists = groupFilesByArtist(currentGenreData.files);
-                setCurrentGenre({ ...currentGenreData, artists });
-              }
+          console.log("Deleting:", songData); // For debugging
+          const success = await deleteLink(
+            rootHandle,
+            songData.genre,
+            songData.artist || songData.fileName.split(" - ")[0], // Extract artist from filename if not provided
+            songData.song || songData.fileName.split(" - ")[1] // Extract song from filename if not provided
+          );
+          if (success) {
+            // Refresh the current genre view
+            const currentGenreData = genres.find((g) => g.name === currentGenre.name);
+            if (currentGenreData) {
+              const artists = groupFilesByArtist(currentGenreData.files);
+              setCurrentGenre({ ...currentGenreData, artists });
             }
-          };
+          }
+        };
 
         const handleUpdateLink = async (oldData, newData) => {
           const success = await updateLink(rootHandle, oldData, newData);
@@ -977,17 +1091,21 @@
             ) : view === "artist" ? (
               <ArtistView artists={currentGenre.artists} onSelectArtist={handleArtistClick} onBackToGenre={() => setView("home")} />
             ) : view === "songs" ? (
-                <SongView 
-                  artist={currentArtist} // Pass the entire currentArtist object
-                  onBackClick={() => setView("artist")} 
-                  onFileClick={handleFileClick} 
-                  onDeleteLink={handleDeleteLink} 
-                  onUpdateLink={handleUpdateLink} 
-                />
-              ) : null }
+              <SongView
+                artist={currentArtist} // Pass the entire currentArtist object
+                onBackClick={() => setView("artist")}
+                onFileClick={handleFileClick}
+                onDeleteLink={handleDeleteLink}
+                onUpdateLink={handleUpdateLink}
+              />
+            ) : null}
           </Container>
         );
       };
+
+      //==============================================
+      // Application Initialization
+      //==============================================
 
       const root = ReactDOM.createRoot(document.getElementById("root"));
       root.render(
