@@ -58,16 +58,7 @@
         useDisclosure,
         IconButton,
       } from "@chakra-ui/react";
-      import {
-        File as FileIcon,
-        Folder as FolderIcon,
-        Music as MusicIcon,
-        Clock as ClockIcon,
-        Plus as PlusIcon,
-        Trash2 as TrashIcon,
-        Edit as EditIcon,
-        ExternalLink as LinkIcon
-      } from "lucide-react";
+      import { File as FileIcon, Folder as FolderIcon, Music as MusicIcon, Clock as ClockIcon, Plus as PlusIcon, Trash2 as TrashIcon, Edit as EditIcon, ExternalLink as LinkIcon } from "lucide-react";
 
       //==============================================
       // Theme Configuration
@@ -399,6 +390,7 @@
 
       /**
        * Groups files by artist and organizes them into a structured format
+       * Sorts artists by number of songs (descending) and then alphabetically
        * @param {Array} files - Array of file objects to group
        * @returns {Array} Grouped files organized by artist
        */
@@ -428,7 +420,22 @@
           });
         });
 
-        return Array.from(artistMap.values());
+        // Convert to array and sort by song count and artist name
+        return Array.from(artistMap.values())
+          .map((entry) => ({
+            ...entry,
+            // Sort songs alphabetically by display name
+            songs: entry.songs.sort((a, b) => a.display.localeCompare(b.display)),
+          }))
+          .sort((a, b) => {
+            // First sort by number of songs (descending)
+            const songCountDiff = b.songs.length - a.songs.length;
+            // If song count is equal, sort alphabetically by artist name
+            if (songCountDiff === 0) {
+              return a.artist.display.localeCompare(b.artist.display);
+            }
+            return songCountDiff;
+          });
       };
 
       //==============================================
