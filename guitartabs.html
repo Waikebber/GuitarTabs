@@ -1001,20 +1001,21 @@
         const handleFileClick = async (file) => {
           try {
             if (file.isLink) {
-              console.log("Opening link file:", file); // Debug log
               window.open(file.url, "_blank");
-              // For links, we should copy all link-related properties
+
               const recentLinkData = {
-                name: file.name,
+                name: `${file.artist} - ${file.song}`,
                 genre: file.genre,
                 isLink: true,
                 url: file.url,
-                display: file.name,
+                display: `${file.artist} - ${file.song}`,
                 artist: file.artist,
                 song: file.song,
-                fileName: file.name,
+                fileName: `${file.artist} - ${file.song}`,
+                japanese: file.japanese,
+                english: file.english,
               };
-              console.log("Adding link to recents:", recentLinkData); // Debug log
+
               addRecentFile(recentLinkData);
             } else {
               const fileData = await file.handle.getFile();
@@ -1035,11 +1036,9 @@
         };
 
         const handleRecentFileClick = async (recentFile) => {
-          console.log("Clicking recent file:", recentFile); // Debug log
-
           if (recentFile.isLink && recentFile.url) {
             window.open(recentFile.url, "_blank");
-            addRecentFile(recentFile); // Move to top of recents
+            addRecentFile(recentFile);
             return;
           }
 
@@ -1174,13 +1173,7 @@
             ) : view === "artist" ? (
               <ArtistView artists={currentGenre.artists} onSelectArtist={handleArtistClick} onBackToGenre={() => setView("home")} />
             ) : view === "songs" ? (
-              <SongView
-                artist={currentArtist} // Pass the entire currentArtist object
-                onBackClick={() => setView("artist")}
-                onFileClick={handleFileClick}
-                onDeleteLink={handleDeleteLink}
-                onUpdateLink={handleUpdateLink}
-              />
+              <SongView artist={currentArtist} onBackClick={() => setView("artist")} onFileClick={handleFileClick} onDeleteLink={handleDeleteLink} onUpdateLink={handleUpdateLink} />
             ) : null}
           </Container>
         );
