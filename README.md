@@ -1,138 +1,184 @@
 # Guitar Tabs Browser
 
-A standalone web application for browsing and managing your local guitar tabs collection. This application provides a clean, simple interface to access your PDF guitar tabs organized by genre.
+A modern web application for organizing and managing your local guitar tabs collection. This application provides a clean, intuitive interface for accessing PDF guitar tabs organized by genre, with support for external link management.
 
-## Features
+## Key Features
 
-- Browse tabs organized by genre folders
-- Track recently opened tabs
-- Direct PDF viewing in browser
-- No installation or server required
-- Works completely offline
-- Remembers recently opened files
+- 📁 Browse tabs organized by genre folders
+- 🔗 Add and manage external tab links
+- 📊 Visual genre-based organization
+- 🕒 Track recently opened tabs
+- 📱 Responsive design for all screen sizes
+- 🔍 Direct PDF viewing in browser
+- 💾 Works completely offline
+- 🎸 Artist and song grouping
+- 🌙 Dark mode interface
 
-## Setup
+## Directory Structure
 
-1. Create the following directory structure:
+Create your tabs directory with the following structure:
 ```
-D:/GuitarTabs/
+GuitarTabs/
 ├── guitartabs.html
 ├── Blues/
-│   └── your-blues-tabs.pdf
+│   ├── artist1-song1.pdf
+│   └── artist2-song2.pdf
 ├── Rock/
-│   └── your-rock-tabs.pdf
+│   └── artist3-song3.pdf
 └── [Other Genre Folders]/
-    └── other-tabs.pdf
+    └── your-tabs.pdf
 ```
 
-2. Save `guitartabs.html` in the `D:/GuitarTabs` folder
-3. Organize your PDF tabs into genre folders
-4. Bookmark `file:///D:/GuitarTabs/guitartabs.html` in your browser
+### File Naming Convention
 
-## First Use
+For better organization, use the following naming format:
+- Single language: `Artist Name - Song Name.pdf`
+- Dual language: `Japanese Name (English Name) - Song Name (Japanese Song).pdf`
 
-1. Click your bookmark for `file:///D:/GuitarTabs/guitartabs.html`
-2. When prompted, select the `D:/GuitarTabs` folder
-3. Allow file system permissions when requested
-4. You can now browse and open your tabs
+## Setup Instructions
 
-## Directory Structure Requirements
+1. Download `guitartabs.html` to your chosen directory
+2. Create genre folders (Blues, Rock, etc.)
+3. Place PDF tabs in appropriate genre folders
+4. Open `guitartabs.html` in a supported browser
+5. Grant necessary permissions when prompted
 
-- Main directory must be at `D:/GuitarTabs`
-- Each genre should have its own folder
-- Only PDF files are supported
-- Folder names will be displayed as genre names
+## Usage Guide
 
-## Usage
+### Managing Files
 
-### Home View
-- Shows all genre folders
-- Displays up to 5 recently opened tabs
-- Click any genre to view its contents
+#### Local Files
+- Organize PDFs into genre folders
+- Files are automatically categorized by artist
+- Recently opened files appear on home screen
 
-### Genre View
-- Lists all PDF files in the selected genre
-- Click any file to open it in a new tab
-- Use "Back to Genres" to return to main view
+#### External Links
+- Add links to online tabs via the "Add Link" button
+- Group links by genre and artist
+- Edit or delete links as needed
 
-### Recent Files
-- Shows the last 5 opened tabs
-- Persists between browser sessions
-- Click any recent file to reopen it
+### Navigation
+
+1. **Home View**
+   - Browse genres
+   - Access recent tabs
+   - Add new links
+
+2. **Genre View**
+   - See all artists in genre
+   - View file count
+   - Quick access to all tabs
+
+3. **Artist View**
+   - All songs by artist
+   - PDF and link management
+   - Edit/delete capabilities
 
 ## Technical Requirements
 
-### Browser Support
-- Chrome (recommended)
-- Edge
-- Other Chromium-based browsers
-- Not supported: Firefox, Safari
+### Supported Browsers
+✅ Google Chrome
+✅ Microsoft Edge
+✅ Other Chromium-based browsers
+❌ Firefox
+❌ Safari
 
 ### Required Permissions
-- File system access (granted once per session)
-- Local file reading permissions
-- Pop-up permissions for opening PDFs
+- File System Access API
+- Local file reading
+- Pop-up permissions (for PDF viewing)
+
+## Advanced Features
+
+### Link Management
+- Add external tab links
+- Organize links by genre/artist
+- Edit link details
+- Delete outdated links
+
+### Recent Files Tracking
+- Automatic history tracking
+- Quick access to recent tabs
+- Persistent between sessions
+
+### File Organization
+- Automatic artist/song parsing
+- Support for dual-language names
+- Genre-based categorization
 
 ## Troubleshooting
 
-### File Access Issues
-1. Make sure you've selected the correct directory (`D:/GuitarTabs`)
-2. Allow file system permissions when prompted
-3. Ensure PDFs are properly placed in genre folders
+### Common Issues
 
-### File Not Found Errors
-1. Verify the file still exists in the specified location
-2. Check if the file has been moved to a different genre folder
-3. Clear browser cache if issues persist
+1. **Permission Errors**
+   - Refresh the page
+   - Re-grant permissions
+   - Check browser settings
 
-### Permission Errors
-1. Click the lock icon in your browser's address bar
-2. Verify file system permissions are granted
-3. Try refreshing the page
+2. **Files Not Loading**
+   - Verify file location
+   - Check file permissions
+   - Ensure PDF format
+
+3. **Browser Compatibility**
+   - Use Chrome or Edge
+   - Enable required permissions
+   - Allow pop-ups
+
+### Best Practices
+
+- Keep consistent file naming
+- Organize tabs by genre
+- Regularly backup your collection
+- Use clear folder names
 
 ## Limitations
 
-- Works only with local files
-- Requires modern browser with File System Access API support
-- Must be located at `D:/GuitarTabs`
-- Only supports PDF files
-- Permissions must be re-granted each browser session
+- PDF files only
+- Modern browser required
+- Permissions reset on session end
+- Local files only
+
+## Future Roadmap
+
+Planned improvements:
+- Search functionality
+- Tag support
+- Multiple file types
+- Custom themes
+- Export/import capability
+- Mobile app version
 
 ## Browser Settings
 
-For optimal performance, ensure:
-1. Pop-ups are allowed for PDF viewing
-2. File system access is enabled
-3. Local file access is permitted
+For optimal performance:
 
-## File Organization Tips
+1. **Chrome/Edge Settings**
+   - Enable File System Access
+   - Allow pop-ups
+   - Grant local file access
 
-1. Use clear, descriptive folder names for genres
-2. Keep PDF filenames consistent
-3. Consider subgenres as separate folders
-4. Regularly update and organize your collection
+2. **Permissions**
+   - File system: Allow
+   - Pop-ups: Allow
+   - Local files: Allow
 
 ## Support
 
-This is a standalone application with no external dependencies or support requirements. For issues:
-1. Verify browser compatibility
-2. Check file permissions
-3. Ensure correct directory structure
-4. Review troubleshooting steps above
+This is a standalone application. For issues:
+1. Check browser compatibility
+2. Verify file permissions
+3. Review troubleshooting steps
+4. Ensure correct file structure
 
-## Future Improvements
+## Development
 
-While this is a standalone version, possible future enhancements could include:
-- Support for additional file types
-- Configurable directory location
-- Search functionality
-- Tab metadata display
-- Custom genre ordering
-
-## Credits
-
-This is a standalone web application built with:
-- React
-- Chakra UI
+Built with:
+- React for UI
+- Chakra UI for styling
 - File System Access API
-- Local Storage for recent files tracking
+- Local Storage API
+
+## License
+
+MIT License - Feel free to modify and distribute as needed.
