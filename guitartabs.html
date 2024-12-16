@@ -60,6 +60,58 @@
       } from "@chakra-ui/react";
       import { File as FileIcon, Folder as FolderIcon, Music as MusicIcon, Clock as ClockIcon, Plus as PlusIcon, Trash2 as TrashIcon, Edit as EditIcon, ExternalLink as LinkIcon } from "lucide-react";
 
+      const dbName = "guitarTabsDB";
+      const storeName = "directoryHandle";
+      const version = 1;
+
+      const openDB = () => {
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open(dbName, version);
+
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => resolve(request.result);
+
+          request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(storeName)) {
+              db.createObjectStore(storeName);
+            }
+          };
+        });
+      };
+
+      const storeDirectoryHandle = async (handle) => {
+        const db = await openDB();
+        const transaction = db.transaction(storeName, "readwrite");
+        const store = transaction.objectStore(storeName);
+        await store.put(handle, "dirHandle");
+      };
+
+      const getStoredDirectoryHandle = async () => {
+        const db = await openDB();
+        const transaction = db.transaction(storeName, "readonly");
+        const store = transaction.objectStore(storeName);
+        return store.get("dirHandle");
+      };
+
+      const verifyPermission = async (fileHandle, readWrite) => {
+        const options = {
+          mode: readWrite ? "readwrite" : "read",
+        };
+
+        // Check if we already have permission, if so, return true
+        if ((await fileHandle.queryPermission(options)) === "granted") {
+          return true;
+        }
+
+        // Request permission if we don't have it
+        if ((await fileHandle.requestPermission(options)) === "granted") {
+          return true;
+        }
+
+        return false;
+      };
+
       //==============================================
       // Theme Configuration
       //==============================================
@@ -140,7 +192,7 @@
             const genresList = [];
             const links = await loadLinks(dirHandle);
             const existingFolders = new Set();
-        
+
             // First, load existing folders and PDF files
             for await (const entry of dirHandle.values()) {
               if (entry.kind === "directory" && entry.name !== ".git") {
@@ -156,7 +208,7 @@
                     });
                   }
                 }
-                
+
                 // Only add genres that have files in them
                 if (files.length > 0) {
                   genresList.push({
@@ -167,25 +219,23 @@
                 }
               }
             }
-        
+
             // Then, process links and create genre folders if they don't exist
             for (const genre in links) {
               // Skip if genre has no songs
-              const hasLinks = Object.keys(links[genre]).some(artist => 
-                Object.keys(links[genre][artist]).length > 0
-              );
-              
+              const hasLinks = Object.keys(links[genre]).some((artist) => Object.keys(links[genre][artist]).length > 0);
+
               if (!hasLinks) continue;
-        
-              let genreEntry = genresList.find(g => g.name === genre);
-              
+
+              let genreEntry = genresList.find((g) => g.name === genre);
+
               if (!genreEntry) {
                 try {
                   const newFolderHandle = await dirHandle.getDirectoryHandle(genre, { create: true });
                   genreEntry = {
                     name: genre,
                     handle: newFolderHandle,
-                    files: []
+                    files: [],
                   };
                   genresList.push(genreEntry);
                 } catch (err) {
@@ -193,7 +243,7 @@
                   continue;
                 }
               }
-        
+
               // Add links for this genre
               for (const artist in links[genre]) {
                 for (const song in links[genre][artist]) {
@@ -208,10 +258,10 @@
                 }
               }
             }
-        
+
             // Filter out any genres that might still be empty
-            const nonEmptyGenres = genresList.filter(genre => genre.files.length > 0);
-        
+            const nonEmptyGenres = genresList.filter((genre) => genre.files.length > 0);
+
             setGenres(nonEmptyGenres.sort((a, b) => a.name.localeCompare(b.name)));
             setError(null);
           } catch (err) {
@@ -223,18 +273,27 @@
         useEffect(() => {
           const restoreAccess = async () => {
             try {
-              const stored = localStorage.getItem("guitarTabsDirectory");
-              if (stored) {
-                const handle = JSON.parse(stored);
-                if (handle) {
-                  const dirHandle = await window.showDirectoryPicker({
-                    startIn: handle,
-                    mode: "readwrite",
-                  });
-                  await loadDirectory(dirHandle);
-                  setRootHandle(dirHandle);
-                  setShowPermissionDialog(false);
+              const handle = await getStoredDirectoryHandle();
+              if (handle) {
+                // Verify permission with our new function
+                const hasPermission = await verifyPermission(handle, true);
+
+                if (hasPermission) {
+                  // Try to actually use the handle
+                  try {
+                    await handle.values().next();
+                    await loadDirectory(handle);
+                    setRootHandle(handle);
+                    setShowPermissionDialog(false);
+                  } catch (err) {
+                    console.error("Error accessing directory:", err);
+                    setShowPermissionDialog(true);
+                  }
+                } else {
+                  setShowPermissionDialog(true);
                 }
+              } else {
+                setShowPermissionDialog(true);
               }
             } catch (err) {
               console.error("Failed to restore directory access:", err);
@@ -251,17 +310,15 @@
               mode: "readwrite",
             });
 
-            try {
-              const permission = await handle.requestPermission({ mode: "readwrite" });
-              if (permission === "granted") {
-                await loadDirectory(handle);
-                localStorage.setItem("guitarTabsDirectory", JSON.stringify(handle));
-                setRootHandle(handle);
-                setShowPermissionDialog(false);
-              }
-            } catch (err) {
-              console.error("Permission error:", err);
-              setError("Failed to get permission for directory");
+            const hasPermission = await verifyPermission(handle, true);
+            if (hasPermission) {
+              await storeDirectoryHandle(handle);
+              await loadDirectory(handle);
+              setRootHandle(handle);
+              setShowPermissionDialog(false);
+            } else {
+              setError("Permission denied for directory");
+              setShowPermissionDialog(true);
             }
           } catch (err) {
             console.error("Directory access error:", err);
