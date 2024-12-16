@@ -188,6 +188,80 @@
         return { recentFiles, addRecentFile };
       };
 
+      const parseFileName = (fileName) => {
+        // Remove .pdf extension
+        const namePart = fileName.replace('.pdf', '');
+        
+        // Split artist and song by ' - '
+        const [artistPart, songPart] = namePart.split(' - ').map(p => p.trim());
+        
+        // Parse artist name
+        let japaneseArtist = null;
+        let englishArtist = null;
+        
+        if (artistPart.includes('(')) {
+          // Format: 米津玄師 (Kenshi Yonezu)
+          const [jName, eName] = artistPart.split('(');
+          japaneseArtist = jName.trim();
+          englishArtist = eName.replace(')', '').trim();
+        } else {
+          // Format: Kenshi Yonezu
+          englishArtist = artistPart;
+        }
+        
+        // Parse song name
+        let japaneseSong = null;
+        let englishSong = null;
+        
+        if (songPart.includes('(')) {
+          // Format: Lemon (レモン)
+          const [eName, jName] = songPart.split('(');
+          englishSong = eName.trim();
+          japaneseSong = jName.replace(')', '').trim();
+        } else {
+          // Format: Lemon
+          englishSong = songPart;
+        }
+        
+        return {
+          artist: {
+            japanese: japaneseArtist,
+            english: englishArtist,
+            display: japaneseArtist ? `${japaneseArtist} (${englishArtist})` : englishArtist
+          },
+          song: {
+            japanese: japaneseSong,
+            english: englishSong,
+            display: japaneseSong ? `${englishSong} (${japaneseSong})` : englishSong
+          },
+          fileName
+        };
+      };
+      
+      const groupFilesByArtist = (files) => {
+        const artistMap = new Map();
+        
+        files.forEach(file => {
+          const parsedFile = parseFileName(file.name);
+          
+          const artistKey = parsedFile.artist.display;
+          if (!artistMap.has(artistKey)) {
+            artistMap.set(artistKey, {
+              artist: parsedFile.artist,
+              songs: []
+            });
+          }
+          
+          artistMap.get(artistKey).songs.push({
+            ...parsedFile.song,
+            fileName: file.name,
+            handle: file.handle
+          });
+        });
+        
+        return Array.from(artistMap.values());
+      };
+
       const GenreCard = ({ genre, onClick }) => {
         return (
           <Box
@@ -266,33 +340,139 @@
         );
       };
 
+      const ArtistCard = ({ artist, songs, onViewAll }) => {
+        return (
+          <Box
+            borderWidth="2px"
+            borderRadius="xl"
+            p={6}
+            bg="gray.900"
+            w="full"
+            h="full"  // Take full height of grid cell
+            display="flex"
+            flexDirection="column"
+          >
+            <VStack flex="1" spacing={4} align="stretch" h="full">
+              <Heading size="md" textAlign="center" isTruncated>
+                {artist.display}
+              </Heading>
+              
+              <VStack spacing={2} align="start" w="full" flex="1">
+                {songs.slice(0, 3).map(song => (
+                  <Text 
+                    key={song.fileName} 
+                    fontSize="sm" 
+                    color="gray.400"
+                    isTruncated
+                    w="full"
+                  >
+                    {song.display}
+                  </Text>
+                ))}
+                {songs.length > 3 && (
+                  <Text fontSize="sm" color="gray.500">
+                    +{songs.length - 3} more songs
+                  </Text>
+                )}
+              </VStack>
+              
+              <Button
+                size="sm"
+                onClick={onViewAll}
+                bg="gray.800"
+                _hover={{ bg: 'gray.700' }}
+                colorScheme="blue"
+              >
+                View All Songs
+              </Button>
+            </VStack>
+          </Box>
+        );
+      };
+      
+      const ArtistView = ({ artists, onSelectArtist, onBackToGenre }) => {
+        return (
+          <VStack spacing={8} align="stretch">
+            <HStack justify="space-between">
+              <Button
+                leftIcon={<FolderIcon size={16} />}
+                onClick={onBackToGenre}
+                bg="gray.900"
+                borderWidth="2px"
+                borderColor="gray.700"
+                _hover={{ 
+                  bg: 'gray.700',
+                  transform: 'translateY(-1px)',
+                  boxShadow: 'lg'
+                }}
+                transition="all 0.2s"
+                colorScheme="blue"
+              >
+                Back to Genre
+              </Button>
+              <Heading size="lg">Artists</Heading>
+            </HStack>
+            
+            <Box
+              css={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+                gap: '1rem',
+                '& > *': {
+                  height: 'auto'
+                },
+                '@supports (grid-template-rows: masonry)': {
+                  gridTemplateRows: 'masonry'
+                }
+              }}
+            >
+              {artists.map(({ artist, songs }) => (
+                <ArtistCard
+                  key={artist.display}
+                  artist={artist}
+                  songs={songs}
+                  onViewAll={() => onSelectArtist({ artist, songs })}
+                />
+              ))}
+            </Box>
+          </VStack>
+        );
+      };
+
       const GuitarTabs = () => {
         const [view, setView] = useState("home");
         const [currentGenre, setCurrentGenre] = useState("");
         const { rootHandle, genres, initializeDirectory, error, showPermissionDialog } = useFileSystem();
         const { recentFiles, addRecentFile } = useRecentFiles();
-
+        const [currentArtist, setCurrentArtist] = useState(null);
+      
         const handleGenreClick = (genre) => {
-          setCurrentGenre(genre);
-          setView("genre");
+          const artists = groupFilesByArtist(genre.files);
+          setCurrentGenre({ ...genre, artists });
+          setView("artist");
         };
-
+      
+        const handleArtistClick = (artist) => {
+          setCurrentArtist(artist);
+          setView("songs");
+        };
+      
         const handleRecentFileClick = async (recentFile) => {
           const genre = genres.find((g) => g.name === recentFile.genre);
           if (!genre) {
             console.error("Genre not found");
             return;
           }
-
+      
           const file = genre.files.find((f) => f.name === recentFile.name);
           if (!file) {
             console.error("File not found");
             return;
           }
-
+      
           handleFileClick(file);
         };
-
+      
         const handleFileClick = async (file) => {
           try {
             const fileData = await file.handle.getFile();
@@ -303,30 +483,30 @@
             console.error("Error opening file:", err);
           }
         };
-
+      
         if (showPermissionDialog) {
-            return (
-              <Container maxW="container.xl" py={8}>
-                <VStack spacing={4}>
-                  <Heading>Guitar Tabs Browser</Heading>
-                  <Button onClick={initializeDirectory} colorScheme="blue" leftIcon={<FolderIcon size={16} />}>
-                    Grant Permission
-                  </Button>
-                  {error && <Text color="red.500">{error}</Text>}
-                </VStack>
-              </Container>
-            );
-          }
-  
-          if (!rootHandle) {
-            return (
-              <Container maxW="container.xl" py={8}>
-                <Heading size="lg">Loading Guitar Tabs...</Heading>
-              </Container>
-            );
-          }
-  
           return (
+            <Container maxW="container.xl" py={8}>
+              <VStack spacing={4}>
+                <Heading>Guitar Tabs Browser</Heading>
+                <Button onClick={initializeDirectory} colorScheme="blue" leftIcon={<FolderIcon size={16} />}>
+                  Grant Permission
+                </Button>
+                {error && <Text color="red.500">{error}</Text>}
+              </VStack>
+            </Container>
+          );
+        }
+      
+        if (!rootHandle) {
+          return (
+            <Container maxW="container.xl" py={8}>
+              <Heading size="lg">Loading Guitar Tabs...</Heading>
+            </Container>
+          );
+        }
+      
+        return (
           <Container maxW="container.xl" py={8}>
             {view === "home" ? (
               <VStack spacing={12} align="stretch">
@@ -365,7 +545,7 @@
                     </SimpleGrid>
                   </Box>
                 )}
-
+      
                 {/* Genres Section */}
                 <Box>
                   <Heading size="md" mb={6} textAlign="center">
@@ -383,49 +563,56 @@
                   )}
                 </Box>
               </VStack>
-              ) : (
-                <VStack align="stretch" spacing={6}>
-                  <HStack justify="space-between">
-                    <Button
-                      leftIcon={<FolderIcon size={16} />}
-                      onClick={() => setView("home")}
-                      variant="outline"
-                      colorScheme="blue"
+            ) : view === "artist" ? (
+              <ArtistView
+                artists={currentGenre.artists}
+                onSelectArtist={handleArtistClick}
+                onBackToGenre={() => setView("home")}
+              />
+            ) : view === "songs" ? (
+              <VStack align="stretch" spacing={6}>
+                <HStack justify="space-between">
+                  <Button
+                    leftIcon={<FolderIcon size={16} />}
+                    onClick={() => setView("artist")}
+                    bg="gray.900"
+                    borderWidth="2px"
+                    borderColor="gray.700"
+                    _hover={{ 
+                      bg: 'gray.700',
+                      transform: 'translateY(-1px)',
+                      boxShadow: 'lg'
+                    }}
+                    transition="all 0.2s"
+                  >
+                    Back to Artists
+                  </Button>
+                  <Heading size="lg">{currentArtist.artist.display}</Heading>
+                </HStack>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
+                  {currentArtist.songs.map((song) => (
+                    <Box
+                      key={song.fileName}
+                      borderWidth="1px"
+                      borderRadius="lg"
+                      p={4}
+                      cursor="pointer"
+                      onClick={() => handleFileClick({name: song.fileName, handle: song.handle})}
+                      _hover={{ bg: 'gray.700' }}
+                      bg="gray.900"
                     >
-                      Back Home
-                    </Button>
-                    <Heading size="lg" textAlign="center">{currentGenre.name}</Heading>
-                  </HStack>
-                  {currentGenre.files.length === 0 ? (
-                    <Text fontSize="lg" textAlign="center">
-                      No PDF files found in this folder.
-                    </Text>
-                  ) : (
-                    <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
-                      {currentGenre.files.map((file) => (
-                        <Box
-                          key={file.name}
-                          borderWidth="1px"
-                          borderRadius="lg"
-                          p={4}
-                          cursor="pointer"
-                          onClick={() => handleFileClick(file)}
-                          _hover={{ bg: 'gray.700' }}
-                          bg="gray.900"
-                        >
-                          <VStack align="center" spacing={2}>
-                            <FileIcon size={16} />
-                            <Text textAlign="center">{file.name}</Text>
-                          </VStack>
-                        </Box>
-                      ))}
-                    </SimpleGrid>
-                  )}
-                </VStack>
-              )}
-            </Container>
-          );
-        };
+                      <VStack align="center" spacing={2}>
+                        <FileIcon size={16} />
+                        <Text textAlign="center">{song.display}</Text>
+                      </VStack>
+                    </Box>
+                  ))}
+                </SimpleGrid>
+              </VStack>
+            ) : null}
+          </Container>
+        );
+      };
   
         const root = ReactDOM.createRoot(document.getElementById("root"));
         root.render(
