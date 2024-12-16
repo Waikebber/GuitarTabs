@@ -139,11 +139,12 @@
           try {
             const genresList = [];
             const links = await loadLinks(dirHandle);
-
-            // Load folders and PDF files
+            const existingFolders = new Set();
+        
+            // First, load existing folders and PDF files
             for await (const entry of dirHandle.values()) {
-              // Skip .git folder and links.json
               if (entry.kind === "directory" && entry.name !== ".git") {
+                existingFolders.add(entry.name);
                 const files = [];
                 for await (const fileEntry of entry.values()) {
                   if (fileEntry.kind === "file" && fileEntry.name.endsWith(".pdf")) {
@@ -155,31 +156,63 @@
                     });
                   }
                 }
-
-                // Add links for this genre if they exist
-                if (links[entry.name]) {
-                  for (const artist in links[entry.name]) {
-                    for (const song in links[entry.name][artist]) {
-                      files.push({
-                        name: `${artist} - ${song}`,
-                        url: links[entry.name][artist][song],
-                        genre: entry.name,
-                        artist: artist,
-                        song: song,
-                        isLink: true,
-                      });
-                    }
-                  }
+                
+                // Only add genres that have files in them
+                if (files.length > 0) {
+                  genresList.push({
+                    name: entry.name,
+                    handle: entry,
+                    files: files,
+                  });
                 }
-
-                genresList.push({
-                  name: entry.name,
-                  handle: entry,
-                  files: files,
-                });
               }
             }
-            setGenres(genresList.sort((a, b) => a.name.localeCompare(b.name)));
+        
+            // Then, process links and create genre folders if they don't exist
+            for (const genre in links) {
+              // Skip if genre has no songs
+              const hasLinks = Object.keys(links[genre]).some(artist => 
+                Object.keys(links[genre][artist]).length > 0
+              );
+              
+              if (!hasLinks) continue;
+        
+              let genreEntry = genresList.find(g => g.name === genre);
+              
+              if (!genreEntry) {
+                try {
+                  const newFolderHandle = await dirHandle.getDirectoryHandle(genre, { create: true });
+                  genreEntry = {
+                    name: genre,
+                    handle: newFolderHandle,
+                    files: []
+                  };
+                  genresList.push(genreEntry);
+                } catch (err) {
+                  console.error(`Error creating folder for genre ${genre}:`, err);
+                  continue;
+                }
+              }
+        
+              // Add links for this genre
+              for (const artist in links[genre]) {
+                for (const song in links[genre][artist]) {
+                  genreEntry.files.push({
+                    name: `${artist} - ${song}`,
+                    url: links[genre][artist][song],
+                    genre: genre,
+                    artist: artist,
+                    song: song,
+                    isLink: true,
+                  });
+                }
+              }
+            }
+        
+            // Filter out any genres that might still be empty
+            const nonEmptyGenres = genresList.filter(genre => genre.files.length > 0);
+        
+            setGenres(nonEmptyGenres.sort((a, b) => a.name.localeCompare(b.name)));
             setError(null);
           } catch (err) {
             console.error("Error loading directory:", err);
