@@ -310,7 +310,7 @@
       const useRecentFiles = () => {
         const [recentFiles, setRecentFiles] = useState([]);
         const RECENT_FILES_KEY = "recentGuitarTabs";
-        const MAX_RECENT_FILES = 4;
+        const MAX_RECENT_FILES = 5;
 
         useEffect(() => {
           const stored = localStorage.getItem(RECENT_FILES_KEY);
@@ -320,12 +320,17 @@
         }, []);
 
         const addRecentFile = (file) => {
-          const newRecent = [{ name: file.name, genre: file.genre }, ...recentFiles.filter((rf) => rf.name !== file.name).slice(0, MAX_RECENT_FILES - 1)];
+          const newRecent = [file, ...recentFiles.filter((rf) => rf.name !== file.name).slice(0, MAX_RECENT_FILES - 1)];
           setRecentFiles(newRecent);
           localStorage.setItem(RECENT_FILES_KEY, JSON.stringify(newRecent));
         };
 
-        return { recentFiles, addRecentFile };
+        const clearRecentFiles = () => {
+          setRecentFiles([]);
+          localStorage.removeItem(RECENT_FILES_KEY);
+        };
+
+        return { recentFiles, addRecentFile, clearRecentFiles };
       };
 
       //==============================================
@@ -349,13 +354,11 @@
         let japaneseArtist = null;
         let englishArtist = null;
 
-        if (artistPart.includes("(")) {
-          // Format: 米津玄師 (Kenshi Yonezu)
-          const [jName, eName] = artistPart.split("(");
-          japaneseArtist = jName.trim();
-          englishArtist = eName.replace(")", "").trim();
+        const artistMatch = artistPart.match(/(.*?)\s*\((.*?)\)/);
+        if (artistMatch) {
+          japaneseArtist = artistMatch[1].trim();
+          englishArtist = artistMatch[2].trim();
         } else {
-          // Format: Kenshi Yonezu
           englishArtist = artistPart;
         }
 
@@ -363,13 +366,11 @@
         let japaneseSong = null;
         let englishSong = null;
 
-        if (songPart.includes("(")) {
-          // Format: Lemon (レモン)
-          const [eName, jName] = songPart.split("(");
-          englishSong = eName.trim();
-          japaneseSong = jName.replace(")", "").trim();
+        const songMatch = songPart?.match(/(.*?)\s*\((.*?)\)/);
+        if (songMatch) {
+          japaneseSong = songMatch[1].trim();
+          englishSong = songMatch[2].trim();
         } else {
-          // Format: Lemon
           englishSong = songPart;
         }
 
@@ -382,7 +383,7 @@
           song: {
             japanese: japaneseSong,
             english: englishSong,
-            display: japaneseSong ? `${englishSong} (${japaneseSong})` : englishSong,
+            display: japaneseSong ? `${japaneseSong} (${englishSong})` : englishSong,
           },
           fileName,
         };
@@ -524,26 +525,35 @@
        * @param {Function} props.onViewAll - Click handler for viewing all songs
        */
       const ArtistCard = ({ artist, songs, onViewAll }) => {
+        const getArtistDisplay = () => {
+          if (artist.japanese) {
+            return (
+              <VStack spacing={1} mb={2}>
+                <Heading size="md" textAlign="center" isTruncated>
+                  {artist.japanese}
+                </Heading>
+                <Text fontSize="sm" color="gray.400" textAlign="center" isTruncated>
+                  {artist.english}
+                </Text>
+              </VStack>
+            );
+          }
+          return (
+            <Heading size="md" textAlign="center" isTruncated mb={4}>
+              {artist.english}
+            </Heading>
+          );
+        };
+
         return (
-          <Box
-            borderWidth="2px"
-            borderRadius="xl"
-            p={6}
-            bg="gray.900"
-            w="full"
-            h="full" // Take full height of grid cell
-            display="flex"
-            flexDirection="column"
-          >
+          <Box borderWidth="2px" borderRadius="xl" p={6} bg="gray.900" w="full" h="full" display="flex" flexDirection="column">
             <VStack flex="1" spacing={4} align="stretch" h="full">
-              <Heading size="md" textAlign="center" isTruncated>
-                {artist.display}
-              </Heading>
+              {getArtistDisplay()}
 
               <VStack spacing={2} align="start" w="full" flex="1">
                 {songs.slice(0, 3).map((song) => (
                   <Text key={song.fileName} fontSize="sm" color="gray.400" isTruncated w="full">
-                    {song.display}
+                    {song.japanese ? `${song.japanese} (${song.english})` : song.english}
                   </Text>
                 ))}
                 {songs.length > 3 && (
@@ -699,9 +709,22 @@
        * @param {Function} props.onClick - Click handler for opening the song
        */
       const SongBox = ({ song, onDelete, onEdit, onClick }) => {
+        const getSongDisplay = () => {
+          if (song.japanese && song.english) {
+            return (
+              <HStack spacing={2} justify="center">
+                <Text>{song.japanese}</Text>
+                <Text color="gray.400">|</Text>
+                <Text>{song.english}</Text>
+              </HStack>
+            );
+          }
+          return <Text>{song.english || song.display}</Text>;
+        };
+
         return (
-          <Box borderWidth="1px" borderRadius="lg" p={4} cursor="pointer" onClick={() => onClick(song)} _hover={{ bg: "gray.700" }} bg="gray.900">
-            <VStack align="center" spacing={2}>
+          <Box borderWidth="1px" borderRadius="lg" p={4} cursor="pointer" onClick={() => onClick(song)} _hover={{ bg: "gray.700" }} bg="gray.900" position="relative">
+            <VStack align="center" spacing={3}>
               <Box position="relative" w="full">
                 <Center>{song.isLink ? <LinkIcon size={16} /> : <FileIcon size={16} />}</Center>
                 {song.isLink && (
@@ -729,7 +752,10 @@
                   </HStack>
                 )}
               </Box>
-              <Text textAlign="center">{song.display}</Text>
+
+              <Box textAlign="center" w="full">
+                {getSongDisplay()}
+              </Box>
             </VStack>
           </Box>
         );
@@ -903,7 +929,7 @@
               <Heading size="lg">{artist.artist.display}</Heading>
             </HStack>
 
-            <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
+            <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={6}>
               {artist.songs.map((song) => (
                 <SongBox
                   key={song.fileName}
@@ -935,7 +961,7 @@
       const GuitarTabs = () => {
         const [view, setView] = useState("home");
         const [currentGenre, setCurrentGenre] = useState("");
-        const { recentFiles, addRecentFile } = useRecentFiles();
+        const { recentFiles, addRecentFile, clearRecentFiles } = useRecentFiles();
         const [currentArtist, setCurrentArtist] = useState(null);
         const { isOpen, onOpen, onClose } = useDisclosure();
         const [deleteTarget, setDeleteTarget] = useState(null);
@@ -954,13 +980,7 @@
         };
 
         const handleDeleteLink = async (songData) => {
-          console.log("Deleting:", songData); // For debugging
-          const success = await deleteLink(
-            rootHandle,
-            songData.genre,
-            songData.artist || songData.fileName.split(" - ")[0], // Extract artist from filename if not provided
-            songData.song || songData.fileName.split(" - ")[1] // Extract song from filename if not provided
-          );
+          const success = await deleteLink(rootHandle, songData.genre, songData.artist || songData.fileName.split(" - ")[0], songData.song || songData.fileName.split(" - ")[1]);
           if (success) {
             // Refresh the current genre view
             const currentGenreData = genres.find((g) => g.name === currentGenre.name);
@@ -978,32 +998,68 @@
           }
         };
 
+        const handleFileClick = async (file) => {
+          try {
+            if (file.isLink) {
+              console.log("Opening link file:", file); // Debug log
+              window.open(file.url, "_blank");
+              // For links, we should copy all link-related properties
+              const recentLinkData = {
+                name: file.name,
+                genre: file.genre,
+                isLink: true,
+                url: file.url,
+                display: file.name,
+                artist: file.artist,
+                song: file.song,
+                fileName: file.name,
+              };
+              console.log("Adding link to recents:", recentLinkData); // Debug log
+              addRecentFile(recentLinkData);
+            } else {
+              const fileData = await file.handle.getFile();
+              const url = URL.createObjectURL(fileData);
+              window.open(url, "_blank");
+              addRecentFile({
+                name: file.handle.name,
+                genre: file.genre,
+                isPdf: true,
+                display: file.handle.name,
+                handle: file.handle,
+                fileName: file.handle.name,
+              });
+            }
+          } catch (err) {
+            console.error("Error opening file:", err);
+          }
+        };
+
         const handleRecentFileClick = async (recentFile) => {
+          console.log("Clicking recent file:", recentFile); // Debug log
+
+          if (recentFile.isLink && recentFile.url) {
+            window.open(recentFile.url, "_blank");
+            addRecentFile(recentFile); // Move to top of recents
+            return;
+          }
+
           const genre = genres.find((g) => g.name === recentFile.genre);
           if (!genre) {
-            console.error("Genre not found");
+            console.error("Genre not found:", recentFile.genre);
             return;
           }
 
           const file = genre.files.find((f) => f.name === recentFile.name);
           if (!file) {
-            console.error("File not found");
+            console.error("File not found:", recentFile.name);
             return;
           }
 
-          handleFileClick(file);
-        };
-
-        const handleFileClick = async (file) => {
           try {
-            if (file.isLink) {
-              window.open(file.url, "_blank");
-            } else {
-              const fileData = await file.handle.getFile();
-              addRecentFile({ name: file.name, genre: file.genre });
-              const url = URL.createObjectURL(fileData);
-              window.open(url, "_blank");
-            }
+            const fileData = await file.handle.getFile();
+            const url = URL.createObjectURL(fileData);
+            window.open(url, "_blank");
+            addRecentFile(recentFile);
           } catch (err) {
             console.error("Error opening file:", err);
           }
@@ -1046,8 +1102,8 @@
                       onClose();
                     }}
                     loadDirectory={loadDirectory}
-                    loadLinks={loadLinks} // Add this
-                    saveLinks={saveLinks} // Add this
+                    loadLinks={loadLinks}
+                    saveLinks={saveLinks}
                   />
                 </ModalBody>
               </ModalContent>
@@ -1063,27 +1119,37 @@
                   </Button>
                 </Flex>
 
-                {/* Rest of your home view content */}
                 {recentFiles.length > 0 && (
                   <Box>
-                    <Heading size="md" mb={6} textAlign="center">
-                      <VStack>
-                        <ClockIcon size={24} />
-                        <Text>Recent Tabs</Text>
-                      </VStack>
-                    </Heading>
+                    <Flex justify="center" position="relative" mb={6}>
+                      <Heading size="md" textAlign="center">
+                        <VStack>
+                          <ClockIcon size={24} />
+                          <Text>Recent Tabs</Text>
+                        </VStack>
+                      </Heading>
+                      <IconButton aria-label="Clear recent tabs" icon={<TrashIcon size={16} />} onClick={clearRecentFiles} colorScheme="red" variant="ghost" size="sm" position="absolute" right={0} top="50%" transform="translateY(-50%)" />
+                    </Flex>
                     <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
-                      {recentFiles.map((file) => (
-                        <SongBox
-                          key={file.name}
-                          song={{
-                            fileName: file.name,
-                            display: file.name,
-                            genre: file.genre,
-                          }}
-                          onClick={() => handleRecentFileClick(file)}
-                        />
-                      ))}
+                      {recentFiles
+                        .filter((file) => file.name)
+                        .map((file) => (
+                          <SongBox
+                            key={file.name}
+                            song={{
+                              ...file,
+                              fileName: file.name,
+                              display: file.name,
+                              isLink: file.isLink,
+                              url: file.url,
+                              artist: file.artist,
+                              song: file.song,
+                              handle: file.handle,
+                              genre: file.genre,
+                            }}
+                            onClick={() => handleRecentFileClick(file)}
+                          />
+                        ))}
                     </SimpleGrid>
                   </Box>
                 )}
