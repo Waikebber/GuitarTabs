@@ -1147,63 +1147,89 @@
           try {
             if (file.isLink) {
               window.open(file.url, "_blank");
-
+              
+              // Parse the name to get proper japanese/english fields
+              const parsedName = parseFileName(`${file.artist} - ${file.song}`);
+              
               const recentLinkData = {
                 name: `${file.artist} - ${file.song}`,
                 genre: file.genre,
                 isLink: true,
                 url: file.url,
-                display: `${file.artist} - ${file.song}`,
+                display: parsedName.song.display,
                 artist: file.artist,
                 song: file.song,
                 fileName: `${file.artist} - ${file.song}`,
-                japanese: file.japanese,
-                english: file.english,
+                japanese: parsedName.song.japanese,
+                english: parsedName.song.english
               };
-
+        
               addRecentFile(recentLinkData);
             } else {
               const fileData = await file.handle.getFile();
               const url = URL.createObjectURL(fileData);
               window.open(url, "_blank");
+              
+              // Parse the PDF file name
+              const parsedName = parseFileName(file.handle.name);
+              
               addRecentFile({
                 name: file.handle.name,
                 genre: file.genre,
                 isPdf: true,
-                display: file.handle.name,
+                display: parsedName.song.display,
                 handle: file.handle,
                 fileName: file.handle.name,
+                japanese: parsedName.song.japanese,
+                english: parsedName.song.english
               });
             }
           } catch (err) {
             console.error("Error opening file:", err);
           }
         };
+        
 
         const handleRecentFileClick = async (recentFile) => {
           if (recentFile.isLink && recentFile.url) {
             window.open(recentFile.url, "_blank");
-            addRecentFile(recentFile);
+            
+            // Ensure we maintain all the parsed name information
+            const parsedName = parseFileName(recentFile.name);
+            addRecentFile({
+              ...recentFile,
+              display: parsedName.song.display,
+              japanese: parsedName.song.japanese,
+              english: parsedName.song.english
+            });
             return;
           }
-
+        
           const genre = genres.find((g) => g.name === recentFile.genre);
           if (!genre) {
             console.error("Genre not found:", recentFile.genre);
             return;
           }
-
+        
           const file = genre.files.find((f) => f.name === recentFile.name);
           if (!file) {
             console.error("File not found:", recentFile.name);
             return;
           }
-
+        
           try {
             const fileData = await file.handle.getFile();
             const url = URL.createObjectURL(fileData);
             window.open(url, "_blank");
-            addRecentFile(recentFile);
+            
+            // Parse the name when re-adding to recents
+            const parsedName = parseFileName(recentFile.name);
+            addRecentFile({
+              ...recentFile,
+              display: parsedName.song.display,
+              japanese: parsedName.song.japanese,
+              english: parsedName.song.english
+            });
           } catch (err) {
             console.error("Error opening file:", err);
           }
