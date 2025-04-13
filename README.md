@@ -10,16 +10,19 @@ A modern web application for organizing and managing your local guitar tabs coll
 - 🕒 Track recently opened tabs
 - 📱 Responsive design for all screen sizes
 - 🔍 Direct PDF viewing in browser
-- 💾 Works completely offline
+- 💾 Works completely offline after build
 - 🎸 Artist and song grouping
 - 🌙 Dark mode interface
 
 ## Directory Structure
 
-Create your tabs directory with the following structure:
+Set up your tab collection with the following structure:
+
 ```
 GuitarTabs/
-├── guitartabs.html
+├── src/*
+├── StartGuitarTabs.bat
+├── links.json
 ├── Blues/
 │   ├── artist1-song1.pdf
 │   └── artist2-song2.pdf
@@ -29,6 +32,7 @@ GuitarTabs/
     └── your-tabs.pdf
 ```
 
+
 ### File Naming Convention
 
 For better organization, use the following naming format:
@@ -37,11 +41,45 @@ For better organization, use the following naming format:
 
 ## Setup Instructions
 
-1. Download `guitartabs.html` to your chosen directory
-2. Create genre folders (Blues, Rock, etc.)
-3. Place PDF tabs in appropriate genre folders
-4. Open `guitartabs.html` in a supported browser
-5. Grant necessary permissions when prompted
+### One-Time Setup
+
+1. Clone or download the project
+2. Organize your tab folders inside the project root
+3. Ensure PDFs follow the naming format
+4. Install dependencies:
+```bash
+npm install
+```
+if you get a chakra error when running/building it try running:
+```bash
+npm i @chakra-ui/react@2 @emotion/react @emotion/styled framer-motion
+```
+
+### Development Server (Optional)
+```bash
+npx vite
+```
+Visit [http://localhost:5173](http://localhost:5173)
+
+### Production Build (Standalone Use)
+```bash
+npx vite build
+```
+Then open `dist/index.html` via:
+- Manual double-click
+- `.bat` launcher (recommended)
+- Bookmark `file:///.../dist/index.html` (see limitations)
+
+### One-Click Launch (Recommended)
+Create a `.bat` file in the root folder:
+```bat
+@echo off
+cd /d %~dp0
+start /B npx serve dist
+timeout /t 2 >nul
+start chrome http://localhost:3000
+```
+Place this on your desktop or pin to Start for easy launching.
 
 ## Usage Guide
 

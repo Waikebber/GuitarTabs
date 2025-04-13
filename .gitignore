@@ -1,6 +1,8 @@
 *.pdf
 *.json
+*.bat
 TODO.md
+dist/
 
 !.gitignore
 !guitartabs.html
